@@ -29,6 +29,8 @@ import argparse
 import os
 import sys
 import io
+import zarr
+import numpy as np
 
 FORMAT_RAW = "raw"
 FORMAT_TIFF = "tiff"
@@ -51,6 +53,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
         elif args.format == FORMAT_TIFF:
             import tifffile
             path = self.path[1:] + ".tiff"
+            print(path)
             if not os.path.exists(path):
                 super(RequestHandler, self).do_GET()
                 return
@@ -62,9 +65,28 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.copyfile(io.BytesIO(data), self.wfile)
-        else:
+        elif args.format == FORMAT_ZARR:
             import zarr
-            pass
+            level, path = self.path[1:].split('/')
+            if not os.path.exists(level):
+                super(RequestHandler, self).do_GET()
+                return
+            zstr, ystr, xstr = path.split('_')
+            x0, x1 = [int(x) for x in xstr.split('-')]
+            y0, y1 = [int(y) for y in ystr.split('-')]
+            z0, z1 = [int(z) for z in zstr.split('-')]
+            store = zarr.NestedDirectoryStore(level)
+            z_arr = zarr.open(store, mode='r')
+            chunk = z_arr[z0:z1, y0:y1, x0:x1].transpose(2, 1, 0)
+            byteorder = "C"
+            data = chunk.tostring(byteorder)
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", 'application/octet-stream')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.copyfile(io.BytesIO(data), self.wfile)
+        else:
+            raise ValueError('Invalid format specified')
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')

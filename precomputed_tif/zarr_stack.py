@@ -2,6 +2,7 @@ import glob
 import json
 import itertools
 import numpy as np
+import tifffile
 import zarr
 from numcodecs import Blosc
 import os
@@ -25,7 +26,7 @@ class ZarrStack:
         """
         self.files = sorted(glob.glob(glob_expr))
         self.z_extent = len(self.files)
-        img0 = tifffile.imread(self.files[0])
+        img0 = tifffile.imread(self.files[0])  # need to take this out into main.py to allow zarr precomputed too
         self.y_extent, self.x_extent = img0.shape
         self.dtype = img0.dtype
         self.dest = dest
@@ -208,7 +209,7 @@ class ZarrStack:
                               shape=(self.z1(level)[-1],
                                      self.y1(level)[-1],
                                      self.x1(level)[-1]),
-                              compression=self.compressor))
+                              compression=self.compressor)
 
         z0s = self.z0(level - 1)  # source block coordinates
         z1s = self.z1(level - 1)

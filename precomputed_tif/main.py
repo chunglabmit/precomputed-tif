@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from .stack import Stack
+from .zarr_stack import ZarrStack
 
 
 def parse_args(args=sys.argv[1:]):
@@ -16,14 +17,21 @@ def parse_args(args=sys.argv[1:]):
                         type=int,
                         help="# of mipmap levels",
                         default=4)
+    parser.add_argument("--format",
+                        type=str,
+                        help="destination format (tiff, zarr)",
+                        default='tiff')
     return parser.parse_args(args)
 
 
 def main():
     args = parse_args()
-    stack = Stack(args.source, args.dest)
+    if args.format == 'zarr':
+        stack = ZarrStack(args.source, args.dest)
+    else:
+        stack = Stack(args.source, args.dest)
     stack.write_info_file(args.levels)
-    stack.write_level_1()
+    stack.write_level_1()  # Not needed for zarr inputs
     for level in range(2, args.levels+1):
         stack.write_level_n(level)
 
