@@ -71,13 +71,13 @@ class RequestHandler(SimpleHTTPRequestHandler):
             if not os.path.exists(level):
                 super(RequestHandler, self).do_GET()
                 return
-            zstr, ystr, xstr = path.split('_')
+            xstr, ystr, zstr = path.split('_')
             x0, x1 = [int(x) for x in xstr.split('-')]
             y0, y1 = [int(y) for y in ystr.split('-')]
             z0, z1 = [int(z) for z in zstr.split('-')]
             store = zarr.NestedDirectoryStore(level)
             z_arr = zarr.open(store, mode='r')
-            chunk = z_arr[z0:z1, y0:y1, x0:x1].transpose(2, 1, 0)
+            chunk = z_arr[z0:z1, y0:y1, x0:x1]
             byteorder = "C"
             data = chunk.tostring(byteorder)
             self.send_response(HTTPStatus.OK)

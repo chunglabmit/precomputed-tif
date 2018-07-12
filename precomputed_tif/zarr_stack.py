@@ -149,11 +149,11 @@ class ZarrStack:
         for level in range(1, n_levels + 1):
             resolution = self.resolution(level)
             scales.append(
-                dict(chunk_sizes=[64, 64, 64],
+                dict(chunk_sizes=[[64, 64, 64]],
                      encoding="raw",
                      key="%d_%d_%d" % (resolution, resolution, resolution),
                      resolution=[resolution, resolution, resolution],
-                     size=[z_extent, y_extent, x_extent],
+                     size=[x_extent, y_extent, z_extent],
                      voxel_offset=[0, 0, 0]))
             z_extent = (z_extent + 1) // 2
             y_extent = (y_extent + 1) // 2
