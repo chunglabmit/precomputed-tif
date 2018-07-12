@@ -133,7 +133,7 @@ class Stack:
         for level in range(1, n_levels + 1):
             resolution = self.resolution(level)
             scales.append(
-                dict(chunk_sizes=[64, 64, 64],
+                dict(chunk_sizes=[[64, 64, 64]],
                      encoding="raw",
                      key="%d_%d_%d" % (resolution, resolution, resolution),
                      resolution=[resolution, resolution, resolution],
@@ -247,5 +247,5 @@ class Stack:
             tifffile.imsave(dest_path,
                             block[:,
                                   :y1d[yidx] - y0d[yidx],
-                                  :x1d[xidx] - x0d[xidx]],
+                                  :x1d[xidx] - x0d[xidx]].astype(self.dtype),
                             compress=4)

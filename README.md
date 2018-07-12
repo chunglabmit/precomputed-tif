@@ -52,6 +52,7 @@ precomputed-webserver \
   --port <port-number> \
   --bind <ip-address> \
   --directory <directory>
+  --format tiff
 ```
 
 where

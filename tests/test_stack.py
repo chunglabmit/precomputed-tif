@@ -63,7 +63,7 @@ class TestStack(unittest.TestCase):
             self.assertEqual(info["num_channels"], 1)
             scales = info["scales"]
             self.assertEqual(len(scales), 2)
-            self.assertSequenceEqual(scales[0]["chunk_sizes"], (64, 64, 64))
+            self.assertSequenceEqual(scales[0]["chunk_sizes"][0], (64, 64, 64))
             self.assertEqual(scales[0]["encoding"], "raw")
             self.assertEqual(scales[0]["key"], "1_1_1")
             self.assertSequenceEqual(scales[0]["resolution"], (1, 1, 1))

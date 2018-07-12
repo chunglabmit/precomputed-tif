@@ -34,6 +34,8 @@ FORMAT_RAW = "raw"
 FORMAT_TIFF = "tiff"
 FORMAT_ZARR = "zarr"
 
+args = None
+
 try:
     # Python3 and Python2 with future package.
     from http.server import SimpleHTTPRequestHandler, HTTPServer, HTTPStatus
@@ -77,6 +79,7 @@ class Server(HTTPServer):
 
 
 def main():
+    global args
     ap = argparse.ArgumentParser()
     ap.add_argument('-p', '--port', type=int, default=9000, help='TCP port to listen on')
     ap.add_argument('-a', '--bind', default='127.0.0.1', help='Bind address')
@@ -94,3 +97,7 @@ def main():
     except KeyboardInterrupt:
         server.server_close()
         sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
