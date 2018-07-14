@@ -137,7 +137,7 @@ class Stack:
                      encoding="raw",
                      key="%d_%d_%d" % (resolution, resolution, resolution),
                      resolution=[resolution, resolution, resolution],
-                     size=[z_extent, y_extent, x_extent],
+                     size=[x_extent, y_extent, z_extent],
                      voxel_offset=[0, 0, 0]))
             z_extent = (z_extent + 1) // 2
             y_extent = (y_extent + 1) // 2
