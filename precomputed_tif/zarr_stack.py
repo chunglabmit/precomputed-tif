@@ -15,20 +15,28 @@ Default chunk size is (64, 64, 64)
 
 class ZarrStack:
 
-    def __init__(self, glob_expr, dest, compressor=None):
+    def __init__(self, src, dest, compressor=None):
         """
 
-        :param glob_expr: the glob file expression for capturing the files in
-        the stack, e.g. "/path/to/img_*.tif*"
+        :param src: glob for tiffs or a zarr store
         :param dest: the destination folder for zarr arrays
         :param compressor: numcodecs compressor to use on eachj chunk. Default
         is Zstd level 1 with bitshuffle
         """
-        self.files = sorted(glob.glob(glob_expr))
-        self.z_extent = len(self.files)
-        img0 = tifffile.imread(self.files[0])  # need to take this out into main.py to allow zarr precomputed too
-        self.y_extent, self.x_extent = img0.shape
-        self.dtype = img0.dtype
+        self.files = None
+        self.z_arr = None
+        if isinstance(src, str):  # Assume it's a glob if src is a string
+            self.files = sorted(glob.glob(src))
+            self.z_extent = len(self.files)
+            img0 = tifffile.imread(self.files[0])
+            self.y_extent, self.x_extent = img0.shape
+            self.dtype = img0.dtype
+        elif isinstance(src, zarr.NestedDirectoryStore):
+            self.z_arr = zarr.open(src, mode='r')
+            self.z_extent, self.y_extent, self.x_extent = self.z_arr.shape
+            self.dtype = self.z_arr.dtype
+        else:
+            raise ValueError('Unrecognized data source for ZarrStack')
         self.dest = dest
         if compressor is None:
             self.compressor = Blosc(cname='zstd', clevel=1, shuffle=Blosc.BITSHUFFLE)
@@ -164,8 +172,8 @@ class ZarrStack:
 
     def write_level_1(self, silent=False):
         """Write the first mipmap level, loading from tiff planes"""
-        dest = os.path.join(self.dest, "1_1_1")
-        store = zarr.NestedDirectoryStore(dest)
+        dest_lvl1 = os.path.join(self.dest, "1_1_1")
+        store = zarr.NestedDirectoryStore(dest_lvl1)
 
         z_arr_1 = zarr.open(store,
                             mode='w',
@@ -181,11 +189,15 @@ class ZarrStack:
         x0 = self.x0(1)
         x1 = self.x1(1)
 
-        for z0a, z1a in tqdm.tqdm(zip(z0, z1), total=len(z0), disable=silent):
-            img = np.zeros((64, y1[-1], x1[-1]), self.dtype)
-            for z in range(z0a, z1a):
-                img[z-z0a] = tifffile.imread(self.files[z])
-            z_arr_1[z0a:z1a] = img
+        if self.files is not None:
+            for z0a, z1a in tqdm.tqdm(zip(z0, z1), total=len(z0), disable=silent):
+                img = np.zeros((64, y1[-1], x1[-1]), self.dtype)
+                for z in range(z0a, z1a):
+                    img[z-z0a] = tifffile.imread(self.files[z])
+                z_arr_1[z0a:z1a] = img
+        elif self.z_arr is not None:  # need to decompress to re-chunk the original store
+            for z0a, z1a in tqdm.tqdm(zip(z0, z1), total=len(z0), disable=silent):
+                z_arr_1[z0a:z1a] = self.z_arr[z0a:z1a]
 
     def write_level_n(self, level, silent=False):
         src_resolution = self.resolution(level - 1)
@@ -228,7 +240,7 @@ class ZarrStack:
                 range(self.n_x(level)),
                 range(self.n_y(level)),
                 range(self.n_z(level)))),
-            disable=silent):  # looping over destination block indicies (fewer blocks than source)
+                disable=silent):  # looping over destination block indicies (fewer blocks than source)
             block = np.zeros((z1d[zidx] - z0d[zidx],
                               y1d[yidx] - y0d[yidx],
                               x1d[xidx] - x0d[xidx]), np.uint64)

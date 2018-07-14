@@ -1,5 +1,6 @@
 import argparse
 import sys
+import zarr
 
 from .stack import Stack
 from .zarr_stack import ZarrStack
@@ -27,11 +28,15 @@ def parse_args(args=sys.argv[1:]):
 def main():
     args = parse_args()
     if args.format == 'zarr':
-        stack = ZarrStack(args.source, args.dest)
+        if args.source.endswith('.tif') or args.source.endswith('.tiff'):
+            stack = ZarrStack(args.source, args.dest)
+        else:
+            store = zarr.NestedDirectoryStore(args.source)
+            stack = ZarrStack(store, args.dest)
     else:
         stack = Stack(args.source, args.dest)
     stack.write_info_file(args.levels)
-    stack.write_level_1()  # Not needed for zarr inputs
+    stack.write_level_1()
     for level in range(2, args.levels+1):
         stack.write_level_n(level)
 
