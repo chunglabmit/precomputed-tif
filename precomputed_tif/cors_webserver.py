@@ -31,6 +31,7 @@ import sys
 import io
 import zarr
 import numpy as np
+import pathlib
 
 FORMAT_RAW = "raw"
 FORMAT_TIFF = "tiff"
@@ -48,8 +49,18 @@ except ImportError:
 
 class RequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
-        if args.format == FORMAT_RAW or self.path == "/info":
+        if args.format == FORMAT_RAW or self.path.startswith("/socket"):
+            print("Handing request to simple http request handler")
             super(RequestHandler, self).do_GET()
+        elif self.path.find("/info") >= 0:
+            size = pathlib.Path("info").stat().st_size
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", 'application/octet-stream')
+            self.send_header("Content-Length", str(size))
+            self.end_headers()
+            with open("info", "rb") as fd:
+                self.copyfile(fd, self.wfile)
+
         elif args.format == FORMAT_TIFF:
             import tifffile
             path = self.path[1:] + ".tiff"
