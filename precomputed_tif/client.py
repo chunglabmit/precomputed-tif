@@ -80,12 +80,15 @@ class Info:
             raise KeyError("No such level: %s" % str(level))
 
 
-def _get_info(url) -> Info:
+def get_info(url) -> Info:
     """Get the info file for a precomputed URL
 
     :param url: The precomputed URL
     :returns: the info for the precomputed data source at the URL
     """
+    precomputed = "precomputed://"
+    if url.startswith(precomputed):
+        url = url[len(precomputed):]
     if url in __cache:
         return __cache[url]
     info_url = url + "/info"
@@ -132,7 +135,7 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
     :param level: mipmap level
     :return: a Numpy array containing the data
     """
-    info = _get_info(url)
+    info = get_info(url)
     scale = info.get_scale(level)
     result = np.zeros((z1-z0, y1-y0, x1-x0), info.data_type)
     shape = np.array(scale.shape)
