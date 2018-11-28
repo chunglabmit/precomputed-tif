@@ -67,9 +67,9 @@ class TestStack(unittest.TestCase):
             self.assertEqual(scales[0]["encoding"], "raw")
             self.assertEqual(scales[0]["key"], "1_1_1")
             self.assertSequenceEqual(scales[0]["resolution"], (1, 1, 1))
-            self.assertSequenceEqual(scales[0]["size"], (101, 200, 300))
+            self.assertSequenceEqual(scales[0]["size"], (300, 200, 101))
             self.assertSequenceEqual(scales[0]["voxel_offset"], (0, 0, 0))
-            self.assertSequenceEqual(scales[1]["size"], (51, 100, 150))
+            self.assertSequenceEqual(scales[1]["size"], (150, 100, 51))
 
     def test_write_level_1(self):
         with self.make_case(np.uint16, (100, 200, 300)) as (stack, npstack):

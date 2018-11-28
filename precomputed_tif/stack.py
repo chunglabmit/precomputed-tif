@@ -5,6 +5,7 @@ import numpy as np
 import tifffile
 import os
 import tqdm
+import multiprocessing
 
 class Stack:
 
@@ -22,7 +23,8 @@ class Stack:
         self.dtype = img0.dtype
         self.dest = dest
 
-    def resolution(self, level):
+    @staticmethod
+    def resolution(level):
         """The pixel resolution at a given level
 
         :param level: 1 to N, the mipmap level
@@ -147,6 +149,10 @@ class Stack:
             json.dump(d, fd, indent=2, sort_keys=True)
 
     def fname(self, level, x0, x1, y0, y1, z0, z1):
+        return Stack.sfname(self.dest, level, x0, x1, y0, y1, z0, z1)
+
+    @staticmethod
+    def sfname(dest, level, x0, x1, y0, y1, z0, z1):
         """The file name of the block with these coordinates
 
         :param level: the mipmap level of the block
@@ -158,12 +164,13 @@ class Stack:
         :param z1: ending Z of the block
         :return:
         """
-        resolution = self.resolution(level)
-        return os.path.join(self.dest,
+        resolution = Stack.resolution(level)
+        return os.path.join(dest,
                      "%d_%d_%d" % (resolution, resolution, resolution),
                      "%d-%d_%d-%d_%d-%d.tiff" % (x0, x1, y0, y1, z0, z1))
 
-    def write_level_1(self, silent=False):
+    def write_level_1(self, silent=False,
+                      n_cores=min(os.cpu_count(), 4)):
         """Write the first mipmap level, loading from tiff planes"""
         dest = os.path.join(self.dest, "1_1_1")
         if not os.path.exists(dest):
@@ -174,18 +181,36 @@ class Stack:
         y1 = self.y1(1)
         x0 = self.x0(1)
         x1 = self.x1(1)
-        for z0a, z1a in tqdm.tqdm(zip(z0, z1), total=len(z0), disable=silent):
-            img = np.zeros((64, y0[-1] + 64, x0[-1] + 64), self.dtype)
-            for z in range(z0a, z1a):
-                img[z-z0a, :self.y_extent, :self.x_extent] =\
-                    tifffile.imread(self.files[z])
-            for (x0a, x1a), (y0a, y1a) in itertools.product(
-                    zip(x0, x1), zip(y0, y1)):
-                path = self.fname(1, x0a, x1a, y0a, y1a, z0a, z1a)
-                tifffile.imsave(path, img[:z1a-z0a, y0a:y1a, x0a:x1a],
-                                 compress=4)
+        x_extent = self.x_extent
+        y_extent = self.y_extent
+        dest = self.dest
+        dtype = self.dtype
+        with multiprocessing.Pool(n_cores) as pool:
+            futures = []
+            for z0a, z1a in zip(z0, z1):
+                files = self.files[z0a:z1a]
+                futures.append(pool.apply_async(
+                    Stack.write_one_level_1,
+                    (dest, dtype, files, x_extent, y_extent,
+                     x0, x1, y0, y1, z0a, z1a)))
+            for future in tqdm.tqdm(futures, disable=silent):
+                future.get()
 
-    def write_level_n(self, level, silent=False):
+    @staticmethod
+    def write_one_level_1(dest, dtype, files, x_extent, y_extent,
+                          x0, x1, y0, y1, z0a, z1a):
+        img = np.zeros((64, y0[-1] + 64, x0[-1] + 64), dtype)
+        for z, file in zip(range(z0a, z1a), files):
+            img[z - z0a, :y_extent, :x_extent] = \
+                tifffile.imread(file)
+        for (x0a, x1a), (y0a, y1a) in itertools.product(
+                zip(x0, x1), zip(y0, y1)):
+            path = Stack.sfname(dest, 1, x0a, x1a, y0a, y1a, z0a, z1a)
+            tifffile.imsave(path, img[:z1a - z0a, y0a:y1a, x0a:x1a],
+                            compress=4)
+
+    def write_level_n(self, level, silent=False,
+                      n_cores = min(os.cpu_count(), 12)):
         src_resolution = self.resolution(level - 1)
         dest_resolution = self.resolution(level)
         dest = os.path.join(
@@ -205,47 +230,65 @@ class Stack:
         y1d = self.y1(level)
         x0d = self.x0(level)
         x1d = self.x1(level)
-        for xidx, yidx, zidx in tqdm.tqdm(list(itertools.product(
-                range(self.n_x(level)),
-                range(self.n_y(level)),
-                range(self.n_z(level)))),
-            disable=silent):
-            block = np.zeros((z1d[zidx] - z0d[zidx],
-                              y1d[yidx] - y0d[yidx],
-                              x1d[xidx] - x0d[xidx]), np.uint64)
-            hits = np.zeros((z1d[zidx] - z0d[zidx],
-                             y1d[yidx] - y0d[yidx],
-                             x1d[xidx] - x0d[xidx]), np.uint64)
-            for xsi1, ysi1, zsi1 in itertools.product((0, 1), (0, 1), (0, 1)):
-                xsi = xsi1 + xidx * 2
-                if xsi == self.n_x(level-1):
-                    continue
-                ysi = ysi1 + yidx * 2
-                if ysi == self.n_y(level-1):
-                    continue
-                zsi = zsi1 + zidx * 2
-                if zsi == self.n_z(level-1):
-                    continue
-                src_path = self.fname(
-                    level - 1, x0s[xsi], x1s[xsi], y0s[ysi], y1s[ysi],
-                    z0s[zsi], z1s[zsi])
-                src_block = tifffile.imread(src_path)
-                for offx, offy, offz in \
-                        itertools.product((0, 1), (0, 1), (0,1)):
-                    dsblock = src_block[offz::2, offy::2, offx::2]
-                    block[zsi1*32:zsi1*32 + dsblock.shape[0],
-                          ysi1*32:ysi1*32 + dsblock.shape[1],
-                          xsi1*32:xsi1*32 + dsblock.shape[2]] += \
-                        dsblock.astype(block.dtype)
-                    hits[zsi1*32:zsi1*32 + dsblock.shape[0],
-                         ysi1*32:ysi1*32 + dsblock.shape[1],
-                         xsi1*32:xsi1*32 + dsblock.shape[2]] += 1
-            block[hits > 0] = block[hits > 0] // hits[hits > 0]
-            dest_path = self.fname(
-                level, x0d[xidx], x1d[xidx], y0d[yidx], y1d[yidx],
-                z0d[zidx], z1d[zidx])
-            tifffile.imsave(dest_path,
-                            block[:,
-                                  :y1d[yidx] - y0d[yidx],
-                                  :x1d[xidx] - x0d[xidx]].astype(self.dtype),
-                            compress=4)
+        dest = self.dest
+        dtype = self.dtype
+        xsi_max = self.n_x(level - 1)
+        ysi_max = self.n_y(level - 1)
+        zsi_max = self.n_z(level - 1)
+        with multiprocessing.Pool(n_cores) as pool:
+            futures = []
+            for xidx, yidx, zidx in itertools.product(
+                    range(self.n_x(level)),
+                    range(self.n_y(level)),
+                    range(self.n_z(level))):
+                futures.append(pool.apply_async(
+                    Stack.write_one_level_n,
+                    (dest, dtype, level, x0d, x0s, x1d, x1s, xidx, xsi_max,
+                     y0d, y0s, y1d, y1s, yidx, ysi_max,
+                     z0d, z0s, z1d, z1s, zidx, zsi_max)))
+            for future in tqdm.tqdm(futures):
+                future.get()
+
+    @staticmethod
+    def write_one_level_n(dest, dtype, level, x0d, x0s, x1d, x1s, xidx, xsi_max,
+                          y0d, y0s, y1d, y1s, yidx, ysi_max,
+                          z0d, z0s, z1d, z1s, zidx, zsi_max):
+        block = np.zeros((z1d[zidx] - z0d[zidx],
+                          y1d[yidx] - y0d[yidx],
+                          x1d[xidx] - x0d[xidx]), np.uint64)
+        hits = np.zeros((z1d[zidx] - z0d[zidx],
+                         y1d[yidx] - y0d[yidx],
+                         x1d[xidx] - x0d[xidx]), np.uint64)
+        for xsi1, ysi1, zsi1 in itertools.product((0, 1), (0, 1), (0, 1)):
+            xsi = xsi1 + xidx * 2
+            if xsi == xsi_max:
+                continue
+            ysi = ysi1 + yidx * 2
+            if ysi == ysi_max:
+                continue
+            zsi = zsi1 + zidx * 2
+            if zsi == zsi_max:
+                continue
+            src_path = Stack.sfname(
+                dest, level - 1, x0s[xsi], x1s[xsi], y0s[ysi], y1s[ysi],
+                z0s[zsi], z1s[zsi])
+            src_block = tifffile.imread(src_path)
+            for offx, offy, offz in \
+                    itertools.product((0, 1), (0, 1), (0, 1)):
+                dsblock = src_block[offz::2, offy::2, offx::2]
+                block[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
+                ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
+                xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] += \
+                    dsblock.astype(block.dtype)
+                hits[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
+                ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
+                xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] += 1
+        block[hits > 0] = block[hits > 0] // hits[hits > 0]
+        dest_path = Stack.sfname(
+            dest, level, x0d[xidx], x1d[xidx], y0d[yidx], y1d[yidx],
+            z0d[zidx], z1d[zidx])
+        tifffile.imsave(dest_path,
+                        block[:,
+                        :y1d[yidx] - y0d[yidx],
+                        :x1d[xidx] - x0d[xidx]].astype(dtype),
+                        compress=4)
