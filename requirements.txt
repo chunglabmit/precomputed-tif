@@ -1,0 +1,6 @@
+numpy
+numcodecs
+requests
+tifffile
+tqdm
+zarr

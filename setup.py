@@ -13,9 +13,11 @@ setup(
     long_description=long_description,
     install_requires=[
         "numpy",
+        "numcodecs",
         "requests",
         "tifffile",
-        "tqdm"
+        "tqdm",
+        "zarr"
     ],
     author="Kwanghun Chung Lab",
     packages=["precomputed_tif"],
