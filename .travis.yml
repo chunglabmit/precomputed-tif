@@ -1,0 +1,11 @@
+language: python
+
+install:
+  - pip install --progress-bar off -r requirements.txt
+  - pip install --progress-bar off nose
+
+script:
+  - pip install .
+  - nosetests tests
+  - precomputed-tif --help
+  - precomputed-webserver --help

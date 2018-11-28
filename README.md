@@ -1,6 +1,8 @@
 # precomputed-tif
 A simple utility to generate a precomputed data source as TIF files along with a simple HTTP server of those files.
 
+[![Travis CI Status](https://travis-ci.com/chunglabmit/precomputed-tif.svg?branch=master)](https://travis-ci.com/chunglabmit/precomputed-tif)
+
 ## Installation
 
 **precomputed-tif** has few dependencies. It can be installed using
