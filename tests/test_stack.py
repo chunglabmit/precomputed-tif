@@ -1,43 +1,21 @@
 import unittest
-from precomputed_tif.stack import Stack
-import tempfile
 import numpy as np
 import tifffile
-import contextlib
 import itertools
 import json
 import os
-import shutil
+from precomputed_tif.utils import make_case
 
 class TestStack(unittest.TestCase):
 
-    @contextlib.contextmanager
-    def make_case(self, dtype, shape):
-        imax = np.iinfo(dtype).max
-        npstack = np.random.RandomState(1234).randint(
-            0, imax, size=shape).astype(dtype)
-        tempdir = tempfile.mkdtemp()
-        src = os.path.join(tempdir, "src")
-        os.mkdir(src)
-        dest = os.path.join(tempdir, "dest")
-        os.mkdir(dest)
-        try:
-            for z in range(shape[0]):
-                tifffile.imsave(os.path.join(src, "img_%04d.tiff" % z),
-                                npstack[z])
-                stack = Stack(os.path.join(src, "img_*.tiff"), dest)
-            yield stack, npstack
-        finally:
-            shutil.rmtree(tempdir)
-
     def test_init(self):
-        with self.make_case(np.uint16, (100, 200, 300)) as (stack, npstack):
+        with make_case(np.uint16, (100, 200, 300)) as (stack, npstack):
             self.assertEqual(stack.x_extent, 300)
             self.assertEqual(stack.y_extent, 200)
             self.assertEqual(stack.z_extent, 100)
 
     def test_coordinates(self):
-        with self.make_case(np.uint16, (100, 200, 300)) as (stack, npstack):
+        with make_case(np.uint16, (100, 200, 300)) as (stack, npstack):
             self.assertEqual(stack.n_x(1), 300 // 64 + 1)
             self.assertEqual(stack.n_x(2), 3)
             self.assertEqual(stack.n_x(3), 2)
@@ -55,7 +33,7 @@ class TestStack(unittest.TestCase):
             self.assertSequenceEqual(stack.x1(2).tolist(), (64, 128, 150))
 
     def test_write_info_file(self):
-        with self.make_case(np.uint16, (101, 200, 300)) as (stack, npstack):
+        with make_case(np.uint16, (101, 200, 300)) as (stack, npstack):
             stack.write_info_file(2)
             with open(os.path.join(stack.dest, "info")) as fd:
                 info = json.load(fd)
@@ -72,7 +50,7 @@ class TestStack(unittest.TestCase):
             self.assertSequenceEqual(scales[1]["size"], (150, 100, 51))
 
     def test_write_level_1(self):
-        with self.make_case(np.uint16, (100, 200, 300)) as (stack, npstack):
+        with make_case(np.uint16, (100, 200, 300)) as (stack, npstack):
             stack.write_level_1()
             block_0_64_256 = tifffile.imread(
                 os.path.join(stack.dest, "1_1_1", "256-300_64-128_0-64.tiff"))
@@ -86,7 +64,7 @@ class TestStack(unittest.TestCase):
                 np.testing.assert_equal(block, npstack[z0:z1, y0:y1, x0:x1])
 
     def test_write_level_2(self):
-        with self.make_case(np.uint16, (100, 201, 300)) as (stack, npstack):
+        with make_case(np.uint16, (100, 201, 300)) as (stack, npstack):
             stack.write_level_1()
             stack.write_level_n(2)
             block = tifffile.imread(
