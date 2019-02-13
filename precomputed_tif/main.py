@@ -43,7 +43,7 @@ def main(args=sys.argv[1:]):
             kwargs = {}
         else:
             kwargs = dict(n_cores=args.n_cores)
-    stack = Stack(args.source, args.dest)
+        stack = Stack(args.source, args.dest)
     stack.write_info_file(args.levels)
     stack.write_level_1(**kwargs)
     for level in range(2, args.levels+1):
