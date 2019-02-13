@@ -191,7 +191,7 @@ class ZarrStack:
 
         if self.files is not None:
             for z0a, z1a in tqdm.tqdm(zip(z0, z1), total=len(z0), disable=silent):
-                img = np.zeros((64, y1[-1], x1[-1]), self.dtype)
+                img = np.zeros((z1a-z0a, y1[-1], x1[-1]), self.dtype)
                 for z in range(z0a, z1a):
                     img[z-z0a] = tifffile.imread(self.files[z])
                 z_arr_1[z0a:z1a] = img
