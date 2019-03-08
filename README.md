@@ -64,3 +64,74 @@ to serve  the volume.
 possibly the ip-address of one of the network cards if serving
 outside of the machine
 * **directory** is the directory created by **precomputed-webserver**
+
+### Apache / wsgi webserver
+
+The WSGI webserver serves precomputed datasources via the WSGI
+interface. If you install mod_wsgi for Apache, then you can serve
+a configurable set of precomputed datasources. To configure Apache,
+install and enable mod_wsgi, e.g. for Ubuntu: 
+```bash
+$ sudo apt install libapache2-mod-wsgi-py3
+```
+Create a sources.json file. This is a list of dictionaries with each
+dictionary representing a precomputed data source. There are 3 keys:
+
+* **name**: The name to use in the precomputed URL, e.g. your experiment
+and channel.
+* **directory**: The root directory of the datasource
+* **format**: either "tiff" or "zarr"
+
+Here is a possible sources.json:
+```json
+[
+   {
+       "name": "expt1-dapi",
+       "directory": "/data/expt1/dapi_precomputed",
+       "format": "tiff"
+   },
+   {
+       "name": "expt1-phalloidin",
+       "directory": "/data/expt1/phalloidin_precomputed",
+       "format": "zarr"
+   }
+]
+```
+
+Next, create a WSGI script that points at both the wsgi_webserver and
+the sources.json file. A WSGI script is a Python file with a single
+function or class (see https://www.python.org/dev/peps/pep-0333/).
+This file should be created in an empty directory which will be served
+by mod_wsgi.
+
+For instance:
+```python
+from precomputed_tif.wsgi_webserver import serve_precomputed
+
+CONFIG_FILE = "/etc/sources.json"
+
+def application(environ, start_response):
+    return serve_precomputed(environ, start_response, CONFIG_FILE)
+```
+
+Finally, configure the webserver to serve the file. See
+https://modwsgi.readthedocs.io/en/develop/index.html for directions
+on how to do this. Here's a quick config file example that works and
+may provide a rough template:
+```text
+WSGIDaemonProcess precomputed python-home=<path-to>/anaconda3/envs/precomputed-tif
+WSGIProcessGroup precomputed
+WSGIApplicationGroup %{GLOBAL}
+<Directory /usr/local/apache-scripts>
+<IfVersion < 2.4>
+    Order allow,deny
+    Allow from all
+</IfVersion>
+<IfVersion >= 2.4>
+    Require all granted
+</IfVersion>
+</Directory>
+WSGIScriptAlias /precomputed /usr/local/apache-scripts/precomputed.wsgi
+```
+With the above, you should be able to serve precomputed datasources
+at precomputed://http://localhost/precomputed/expt1-dapi, etc.
