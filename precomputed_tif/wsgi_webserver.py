@@ -81,7 +81,7 @@ def serve_precomputed(environ, start_response, config_file):
                 x0, x1 = [int(x) for x in xstr.split('-')]
                 y0, y1 = [int(y) for y in ystr.split('-')]
                 z0, z1 = [int(z) for z in zstr.split('-')]
-                store = zarr.NestedDirectoryStore(level)
+                store = zarr.NestedDirectoryStore(filename)
                 z_arr = zarr.open(store, mode='r')
                 chunk = z_arr[z0:z1, y0:y1, x0:x1]
                 data = chunk.tostring("C")
