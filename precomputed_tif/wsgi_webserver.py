@@ -1,4 +1,4 @@
-'''Webserver module for mod_wsgi in Apache (e.g.)
+"""Webserver module for mod_wsgi in Apache (e.g.)
 
 To use, create a virtualenv with precomputed-tif installed. Create a json
 file containing a list of sources to serve. Each source should have a
@@ -25,16 +25,18 @@ CONFIG_FILE = "/etc/precomputed.config"
 def application(environ, start_response):
     return serve_precomputed(environ, start_response, config_file)
 
-'''
+"""
 
 import json
 import os
 import pathlib
 
+
 def file_not_found(dest, start_response):
     start_response("404 Not found",
                    [("Content-type", "text/html")])
     return [("<html><body>%s not found</body></html>" % dest).encode("utf-8")]
+
 
 def serve_precomputed(environ, start_response, config_file):
     with open(config_file) as fd:
@@ -75,7 +77,7 @@ def serve_precomputed(environ, start_response, config_file):
                 filename = os.path.join(dest, level)
                 if not os.path.exists(filename):
                     return file_not_found(filename, start_response)
-                xstr, ystr, zstr = filename.split("_")
+                xstr, ystr, zstr = path.split("_")
                 x0, x1 = [int(x) for x in xstr.split('-')]
                 y0, y1 = [int(y) for y in ystr.split('-')]
                 z0, z1 = [int(z) for z in zstr.split('-')]
