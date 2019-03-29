@@ -165,9 +165,9 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
             with urlopen(chunk_url) as fd:
                 chunk = tifffile.imread(fd)
         else:
-            with urlopen(chunk_url) as response:
-                data = response.read()
-                chunk = np.frombuffer(data, info.data_type).reshape(
+            response = urlopen(chunk_url)
+            data = response.read()
+            chunk = np.frombuffer(data, info.data_type).reshape(
                     (z1c - z0c, y1c - y0c, x1c - x0c))
         if z0c < z0:
             chunk = chunk[z0 - z0c:]
