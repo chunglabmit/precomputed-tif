@@ -4,8 +4,9 @@
 
 import itertools
 import json
-from urllib.request import urlopen
+from urllib.request import urlopen, urlparse
 import numpy as np
+import tifffile
 import time
 
 __cache = {}
@@ -135,6 +136,7 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
     :param level: mipmap level
     :return: a Numpy array containing the data
     """
+    is_file = urlparse(url).scheme.lower() == "file"
     info = get_info(url)
     scale = info.get_scale(level)
     result = np.zeros((z1-z0, y1-y0, x1-x0), info.data_type)
@@ -149,7 +151,6 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
     y1d = _chunk_end(y1, offset[1], stride[1], end[1])
     z0d = _chunk_start(z0, offset[2], stride[2])
     z1d = _chunk_end(z1, offset[2], stride[2], end[2])
-
     for x0c, y0c, z0c in itertools.product(
         range(x0d, x1d, stride[0]),
         range(y0d, y1d, stride[1]),
@@ -159,10 +160,15 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
         z1c = min(z1d, z0c + stride[2])
         chunk_url = url + "/" + scale.key + "/%d-%d_%d-%d_%d-%d" % (
             x0c, x1c, y0c, y1c, z0c, z1c)
-        response = urlopen(chunk_url)
-        data = response.read()
-        chunk = np.frombuffer(data, info.data_type).reshape(
-            (z1c - z0c, y1c - y0c, x1c - x0c))
+        if is_file:
+            chunk_url += ".tiff"
+            with urlopen(chunk_url) as fd:
+                chunk = tifffile.imread(fd)
+        else:
+            with urlopen(chunk_url) as response:
+                data = response.read()
+                chunk = np.frombuffer(data, info.data_type).reshape(
+                    (z1c - z0c, y1c - y0c, x1c - x0c))
         if z0c < z0:
             chunk = chunk[z0 - z0c:]
             z0c = z0
