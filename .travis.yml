@@ -1,10 +1,10 @@
 language: python
 python:
-  - 3.5
   - 3.6
 
 install:
   - pip install -U pip
+  - pip install --progress-bar off https://github.com/chunglabmit/blockfs
   - pip install --progress-bar off -r requirements.txt
   - pip install --progress-bar off nose
 

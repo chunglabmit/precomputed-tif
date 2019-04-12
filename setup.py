@@ -12,6 +12,7 @@ setup(
     "Make and serve tiffs as neuroglancer precomputed data source",
     long_description=long_description,
     install_requires=[
+        "blockfs",
         "numpy",
         "numcodecs",
         "requests",

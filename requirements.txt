@@ -1,3 +1,4 @@
+blockfs
 numpy
 numcodecs
 requests
