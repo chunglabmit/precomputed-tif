@@ -36,6 +36,7 @@ import pathlib
 FORMAT_RAW = "raw"
 FORMAT_TIFF = "tiff"
 FORMAT_ZARR = "zarr"
+FORMAT_BLOCKFS = "blockfs"
 
 args = None
 

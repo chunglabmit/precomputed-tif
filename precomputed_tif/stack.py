@@ -7,8 +7,8 @@ import os
 import tqdm
 import multiprocessing
 
-class Stack:
 
+class StackBase:
     def __init__(self, glob_expr, dest):
         """
 
@@ -147,6 +147,12 @@ class Stack:
         d["scales"] = scales
         with open(os.path.join(self.dest, "info"), "w") as fd:
             json.dump(d, fd, indent=2, sort_keys=True)
+
+
+class Stack(StackBase):
+
+    def __init__(self, glob_expr, dest):
+        super(Stack, self).__init__(glob_expr, dest)
 
     def fname(self, level, x0, x1, y0, y1, z0, z1):
         return Stack.sfname(self.dest, level, x0, x1, y0, y1, z0, z1)

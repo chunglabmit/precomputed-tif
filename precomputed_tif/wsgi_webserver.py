@@ -73,14 +73,10 @@ def serve_precomputed(environ, start_response, config_file):
                 return [data]
             elif source["format"] == "zarr":
                 import zarr
-                level, path = filename.split("/")
-                filename = os.path.join(dest, level)
+                filename, x0, x1, y0, y1, z0, z1 = \
+                    parse_filename(dest, filename)
                 if not os.path.exists(filename):
                     return file_not_found(filename, start_response)
-                xstr, ystr, zstr = path.split("_")
-                x0, x1 = [int(x) for x in xstr.split('-')]
-                y0, y1 = [int(y) for y in ystr.split('-')]
-                z0, z1 = [int(z) for z in zstr.split('-')]
                 store = zarr.NestedDirectoryStore(filename)
                 z_arr = zarr.open(store, mode='r')
                 chunk = z_arr[z0:z1, y0:y1, x0:x1]
@@ -91,5 +87,47 @@ def serve_precomputed(environ, start_response, config_file):
                      ("Content-Length", str(len(data))),
                      ('Access-Control-Allow-Origin', '*')])
                 return [data]
+            elif source["format"] == "blockfs":
+                from blockfs import Directory
+                filename, x0, x1, y0, y1, z0, z1 = \
+                    parse_filename(dest, filename)
+                filename = os.path.join(filename, "precomputed.blockfs")
+                directory = Directory.open(filename)
+                chunk = directory.read_block(x0, y0, z0)
+                data = chunk.tostring("C")
+                start_response(
+                    "200 OK",
+                    [("Content-type", "application/octet-stream"),
+                     ("Content-Length", str(len(data))),
+                     ('Access-Control-Allow-Origin', '*')])
+                return [data]
     else:
         return file_not_found(path_info, start_response)
+
+
+def parse_filename(dest, filename):
+    level, path = filename.split("/")
+    filename = os.path.join(dest, level)
+    xstr, ystr, zstr = path.split("_")
+    x0, x1 = [int(x) for x in xstr.split('-')]
+    y0, y1 = [int(y) for y in ystr.split('-')]
+    z0, z1 = [int(z) for z in zstr.split('-')]
+    return filename, x0, x1, y0, y1, z0, z1
+
+if __name__ == "__main__":
+    from wsgiref.simple_server import make_server
+    import sys
+
+    config_filename = sys.argv[1]
+    if len(sys.argv) > 2:
+        port = int(sys.argv[2])
+    else:
+        port = 8080
+
+
+    def application(environ, start_response):
+        return serve_precomputed(environ, start_response, config_filename)
+
+
+    httpd = make_server("127.0.0.1", port, application)
+    httpd.serve_forever()
