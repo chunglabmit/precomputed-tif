@@ -6,6 +6,7 @@ import itertools
 import json
 from urllib.request import urlopen, urlparse
 import numpy as np
+import os
 import tifffile
 import time
 
@@ -123,7 +124,7 @@ def _chunk_end(coord, offset, stride, end):
     return result
 
 
-def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
+def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
     """Read an arbitrary chunk of data
 
     :param url: Base URL of the precomputed data source
@@ -134,6 +135,8 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
     :param z0: starting Z coordinate
     :param z1: ending Z coordinate
     :param level: mipmap level
+    :param format: the read format if it's a file URL. Defaults to tiff, but
+    you can use "blockfs"
     :return: a Numpy array containing the data
     """
     is_file = urlparse(url).scheme.lower() == "file"
@@ -161,9 +164,21 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1):
         chunk_url = url + "/" + scale.key + "/%d-%d_%d-%d_%d-%d" % (
             x0c, x1c, y0c, y1c, z0c, z1c)
         if is_file:
-            chunk_url += ".tiff"
-            with urlopen(chunk_url) as fd:
-                chunk = tifffile.imread(fd)
+            if format == "tiff":
+                chunk_url += ".tiff"
+                with urlopen(chunk_url) as fd:
+                    chunk = tifffile.imread(fd)
+            elif format == "blockfs":
+                from blockfs import Directory
+                from .blockfs_stack import BlockfsStack
+                directory_url = url + "/" + BlockfsStack.DIRECTORY_FILENAME
+                directory_parse = urlparse(directory_url)
+                directory_path = os.path.join(directory_parse.netloc,
+                                              directory_poarse.path)
+                directory = Directory.open(directory_path)
+                chunk = directory.read_block(x0c, y0c, z0c)
+            else:
+                raise NotImplementedError("Can't read %s yet" % format)
         else:
             response = urlopen(chunk_url)
             data = response.read()
