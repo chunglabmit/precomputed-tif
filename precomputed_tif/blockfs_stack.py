@@ -41,7 +41,8 @@ class BlockfsStack(StackBase):
         y_extent = self.y_extent
         z_extent = self.z_extent
         dtype = self.dtype
-        directory_filename = os.path.join(dest, BlockfsStack.DIRECTORY_FILENAME)
+        directory_filename = \
+            os.path.abspath(os.path.join(dest, BlockfsStack.DIRECTORY_FILENAME))
         block_files = [directory_filename + ".%d" % _ for _ in range(n_cores)]
 
         directory = Directory(x_extent, y_extent, z_extent, dtype,
