@@ -120,7 +120,7 @@ class BlockfsStack(StackBase):
         x0d = self.x0(level)
         x1d = self.x1(level)
         dest_directory_filename = \
-            os.path.join(dest, BlockfsStack.DIRECTORY_FILENAME)
+            os.path.abspath(os.path.join(dest, BlockfsStack.DIRECTORY_FILENAME))
         dest_block_filenames = \
             [dest_directory_filename + ".%d" % _ for _ in range(n_cores)]
         dest_directory = Directory(x1d[-1] - x0d[0],
