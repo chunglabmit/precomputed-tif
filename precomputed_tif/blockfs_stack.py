@@ -76,7 +76,7 @@ class BlockfsStack(StackBase):
     @staticmethod
     def write_one_level_1(directory_id, files,
                           x0, x1, y0, y1, z0a, z1a):
-        directory:Directory = directories[directory_id]
+        directory = directories[directory_id]
         x_extent = directory.x_extent
         y_extent = directory.y_extent
         dtype = directory.dtype
@@ -157,8 +157,8 @@ class BlockfsStack(StackBase):
                           x0d, x0s, x1d, x1s, xidx, xsi_max,
                           y0d, y0s, y1d, y1s, yidx, ysi_max,
                           z0d, z0s, z1d, z1s, zidx, zsi_max):
-        src_directory:Directory = directories[src_directory_id]
-        dest_directory:Directory = directories[dest_directory_id]
+        src_directory = directories[src_directory_id]
+        dest_directory = directories[dest_directory_id]
         block = np.zeros((z1d[zidx] - z0d[zidx],
                           y1d[yidx] - y0d[yidx],
                           x1d[xidx] - x0d[xidx]), np.uint64)
