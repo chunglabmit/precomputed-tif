@@ -23,7 +23,7 @@ class BlockfsStack(StackBase):
         super(BlockfsStack, self).__init__(glob_expr, dest)
 
     def fname(self, level):
-        return Stack.resolution(level) + ".blockfs"
+        return StackBase.resolution(level) + ".blockfs"
 
     def write_level_1(self, silent=False,
                       n_cores=min(os.cpu_count(), 4)):

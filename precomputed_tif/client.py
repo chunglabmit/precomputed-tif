@@ -5,6 +5,7 @@
 import itertools
 import json
 from urllib.request import urlopen, urlparse
+from urllib.parse import unquote
 import numpy as np
 import os
 import tifffile
@@ -171,10 +172,12 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
             elif format == "blockfs":
                 from blockfs import Directory
                 from .blockfs_stack import BlockfsStack
-                directory_url = url + "/" + BlockfsStack.DIRECTORY_FILENAME
+                directory_url = url + "/" + scale.key + "/" +\
+                                BlockfsStack.DIRECTORY_FILENAME
                 directory_parse = urlparse(directory_url)
-                directory_path = os.path.join(directory_parse.netloc,
-                                              directory_poarse.path)
+                directory_path = os.path.join(
+                    directory_parse.netloc,
+                    unquote(directory_parse.path))
                 directory = Directory.open(directory_path)
                 chunk = directory.read_block(x0c, y0c, z0c)
             else:
