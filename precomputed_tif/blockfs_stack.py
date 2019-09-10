@@ -63,15 +63,15 @@ class BlockfsStack(StackBase):
                      x0, x1, y0, y1, z0a, z1a)))
             for future in tqdm.tqdm(futures, disable=silent):
                 future.get()
-        try:
-            acc = 0
-            for bw in directory.writers:
-                q = bw.q_in
-                acc += q.qsize()
-            print("Waiting for %d blocks to be written" % acc)
-        except:
-            pass
-        directory.close()
+            try:
+                acc = 0
+                for bw in directory.writers:
+                    q = bw.q_in
+                    acc += q.qsize()
+                print("Waiting for %d blocks to be written" % acc)
+            except:
+                pass
+            directory.close()
 
     @staticmethod
     def write_one_level_1(directory_id, files,
@@ -137,20 +137,22 @@ class BlockfsStack(StackBase):
         ysi_max = self.n_y(level - 1)
         zsi_max = self.n_z(level - 1)
         with multiprocessing.Pool(n_cores) as pool:
-            futures = []
-            for xidx, yidx, zidx in itertools.product(
-                    range(self.n_x(level)),
-                    range(self.n_y(level)),
-                    range(self.n_z(level))):
-                futures.append(pool.apply_async(
-                    BlockfsStack.write_one_level_n,
-                    (src_directory_id, dest_directory_id,
-                     x0d, x0s, x1d, x1s, xidx, xsi_max,
-                     y0d, y0s, y1d, y1s, yidx, ysi_max,
-                     z0d, z0s, z1d, z1s, zidx, zsi_max)))
-            for future in tqdm.tqdm(futures):
-                future.get()
-        dest_directory.close()
+            try:
+                futures = []
+                for xidx, yidx, zidx in itertools.product(
+                        range(self.n_x(level)),
+                        range(self.n_y(level)),
+                        range(self.n_z(level))):
+                    futures.append(pool.apply_async(
+                        BlockfsStack.write_one_level_n,
+                        (src_directory_id, dest_directory_id,
+                         x0d, x0s, x1d, x1s, xidx, xsi_max,
+                         y0d, y0s, y1d, y1s, yidx, ysi_max,
+                         z0d, z0s, z1d, z1s, zidx, zsi_max)))
+                for future in tqdm.tqdm(futures):
+                    future.get()
+            finally:
+                dest_directory.close()
 
     @staticmethod
     def write_one_level_n(src_directory_id, dest_directory_id,
