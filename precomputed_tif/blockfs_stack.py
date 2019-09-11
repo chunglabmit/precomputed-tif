@@ -1,5 +1,6 @@
 import glob
 from numcodecs import Blosc
+import logging
 import multiprocessing
 import numpy as np
 import os
@@ -13,6 +14,7 @@ import itertools
 
 from .stack import StackBase
 
+logger = logging.getLogger("precomputed_tif.blockfs_stack")
 directories = {}
 
 class BlockfsStack(StackBase):
@@ -68,7 +70,7 @@ class BlockfsStack(StackBase):
                 for bw in directory.writers:
                     q = bw.q_in
                     acc += q.qsize()
-                print("Waiting for %d blocks to be written" % acc)
+                logger.info("Waiting for %d blocks to be written" % acc)
             except:
                 pass
             directory.close()

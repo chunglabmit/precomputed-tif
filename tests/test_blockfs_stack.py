@@ -4,7 +4,8 @@ import unittest
 from precomputed_tif.blockfs_stack import BlockfsStack, Blosc
 from precomputed_tif.utils import make_case
 from blockfs import Directory
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
 class TestBlockfsStack(unittest.TestCase):
     def test_write_oddly_shaped(self):
         with make_case(np.uint16, (100, 100, 100), return_path=True)\
