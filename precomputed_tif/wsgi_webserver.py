@@ -43,7 +43,7 @@ def serve_precomputed(environ, start_response, config_file):
         config = json.load(fd)
     path_info = environ["PATH_INFO"]
     for source in config:
-        if path_info[1:].startswith(source["name"]):
+        if path_info[1:].startswith(source["name"]+"/"):
             filename = path_info[2+len(source["name"]):]
             dest = os.path.join(source["directory"])
             if filename == "info":
