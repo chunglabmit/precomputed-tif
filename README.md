@@ -6,9 +6,10 @@ A simple utility to generate a precomputed data source as TIF files along with a
 ## Installation
 
 **precomputed-tif** has few dependencies. It can be installed using
-the command:
+the commands:
 
 ```commandline
+pip install https://github.com/chunglabmit/blockfs/archive/master.zip
 pip install https://github.com/chunglabmit/precomputed-tif/archive/master.zip
 ```
 
