@@ -9,18 +9,22 @@ import multiprocessing
 
 
 class StackBase:
-    def __init__(self, glob_expr, dest):
+    def __init__(self, glob_expr, dest, dtype=None):
         """
 
         :param glob_expr: the glob file expression for capturing the files in
         the stack, e.g. "/path/to/img_*.tif*"
         :param dest: the destination root directory for the precomputed files
         """
-        self.files = sorted(glob.glob(glob_expr))
-        self.z_extent = len(self.files)
-        img0 = tifffile.imread(self.files[0])
-        self.y_extent, self.x_extent = img0.shape
-        self.dtype = img0.dtype
+        if isinstance(glob_expr, (tuple, list)) and len(glob_expr) == 3:
+            self.z_extent, self.y_extent, self.x_extent = glob_expr
+            self.dtype = dtype or np.dtype(np.uint16)
+        else:
+            self.files = sorted(glob.glob(glob_expr))
+            self.z_extent = len(self.files)
+            img0 = tifffile.imread(self.files[0])
+            self.y_extent, self.x_extent = img0.shape
+            self.dtype = dtype or img0.dtype
         self.dest = dest
 
     @staticmethod
