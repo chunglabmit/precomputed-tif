@@ -26,6 +26,7 @@ can connect to the web server.
 from __future__ import print_function, absolute_import
 
 import argparse
+from blockfs.directory import Directory
 import os
 import sys
 import io
@@ -90,6 +91,25 @@ class RequestHandler(SimpleHTTPRequestHandler):
             store = zarr.NestedDirectoryStore(level)
             z_arr = zarr.open(store, mode='r')
             chunk = z_arr[z0:z1, y0:y1, x0:x1]
+            byteorder = "C"
+            data = chunk.tostring(byteorder)
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", 'application/octet-stream')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.copyfile(io.BytesIO(data), self.wfile)
+        elif args.format == FORMAT_BLOCKFS:
+            level, path = self.path[1:].split('/')
+            if not os.path.exists(level):
+                super(RequestHandler, self).do_GET()
+                return
+            xstr, ystr, zstr = path.split('_')
+            x0, x1 = [int(x) for x in xstr.split('-')]
+            y0, y1 = [int(y) for y in ystr.split('-')]
+            z0, z1 = [int(z) for z in zstr.split('-')]
+            directory = Directory.open(
+                os.path.join(level, "precomputed.blockfs"))
+            chunk = directory.read_block(x0, y0, z0)
             byteorder = "C"
             data = chunk.tostring(byteorder)
             self.send_response(HTTPStatus.OK)
