@@ -211,6 +211,88 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
     return result
 
 
+class ArrayReader:
+    def __init__(self, url, format='tiff', level=1):
+        """
+        Initialize the reader with the precomputed data source URL
+        :param url: URL of the data source
+        :param format: either 'tiff', 'blockfs' or 'zarr'
+        :param level: the mipmap level
+        """
+        self.url = url
+        self.format = format
+        self.level = level
+        self.info = get_info(url)
+        self.scale = self.info.get_scale(level)
+
+    def __len__(self):
+        return self.scale.shape[-1]
+
+    @property
+    def shape(self):
+        return self.scale.shape[::-1]
+
+    @property
+    def dtype(self):
+        return self.info.data_type
+
+    def __getitem__(self, key):
+        def s(idx, axis):
+            if idx is None:
+                return 0
+            if idx < 0:
+                return self.scale.shape[2-axis] + idx
+            return idx
+
+        def e(idx, axis):
+            if idx is None:
+                return self.scale.shape[2-axis]
+            if idx < 0:
+                return self.scale.shape[2 - axis] + idx
+            return idx
+
+        assert len(key) == 3, "Please specify 3 axes when indexing"
+        if isinstance(key[0], slice):
+            z0 = s(key[0].start, 0)
+            z1 = e(key[0].stop, 0)
+            zs = key[0].step
+            zsquish=False
+        else:
+            z0 = s(key[0], 0)
+            z1 = z0 + 1
+            zsquish=True
+            zs = 1
+        if isinstance(key[1], slice):
+            y0 = s(key[1].start, 1)
+            y1 = e(key[1].stop, 1)
+            ys = key[1].step
+            ysquish=False
+        else:
+            y0 = s(key[1], 1)
+            y1 = y0 + 1
+            ysquish=True
+            ys = 1
+        if isinstance(key[2], slice):
+            x0 = s(key[2].start, 2)
+            x1 = e(key[2].stop, 2)
+            xs = key[2].step
+            xsquish=False
+        else:
+            x0 = s(key[2], 2)
+            x1 = x0 + 1
+            xsquish=True
+            xs = 1
+        block = read_chunk(self.url, x0, x1, y0, y1, z0, z1,
+                           self.level, self.format)[::zs, ::ys, ::xs]
+        if xsquish:
+            block = block[:, :, 0]
+        if ysquish:
+            block = block[:, 0]
+        if zsquish:
+            block = block[0]
+        return block
+
+
 if __name__ == "__main__":
     import neuroglancer
     from nuggt.utils.ngutils import layer, gray_shader

@@ -4,7 +4,7 @@ import unittest.mock
 import urllib.request
 import numpy as np
 import precomputed_tif.client
-from precomputed_tif.client import read_chunk, clear_cache
+from precomputed_tif.client import read_chunk, clear_cache, ArrayReader
 
 class MockResponse:
 
@@ -140,6 +140,26 @@ class TestClient(unittest.TestCase):
             data = read_chunk(mock.BASE_URL, 0, 96, 0, 120, 0, 128)
             np.testing.assert_array_equal(data, mock.data[:128, :120, :96])
 
+    def test_array_reader(self):
+        with unittest.mock.patch(
+                "precomputed_tif.client.urlopen",
+                MockUrlOpen()) as mock:
+            mock.info["scales"][0]["size"] = (128, 128, 128)
+            a = ArrayReader(mock.BASE_URL)
+            data = a[10:20, 30:40, 50:60]
+            np.testing.assert_array_equal(data, mock.data[10:20, 30:40, 50:60])
+            data = a[10:20:2, 30:40:2, 50:60:2]
+            np.testing.assert_array_equal(
+                data, mock.data[10:20:2, 30:40:2, 50:60:2])
+            data = a[10, 30, 50]
+            self.assertEqual(data, mock.data[10, 30, 50])
+            data = a[:10, :10, :10]
+            np.testing.assert_array_equal(data, mock.data[:10, :10, :10])
+            data = a[-10:, -10:, -10:]
+            np.testing.assert_array_equal(data, mock.data[-10:, -10:, -10:])
+            data = a[10:-108, 30:-88, 50:-68]
+            np.testing.assert_array_equal(
+                data, mock.data[10:-108, 30:-88, 50:-68])
 
 if __name__ == '__main__':
     unittest.main()
