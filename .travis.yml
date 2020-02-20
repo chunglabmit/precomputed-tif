@@ -5,6 +5,7 @@ python:
 
 install:
   - pip install -U pip
+  - pip install --progress-bar off git+https://github.com/chunglabmit/mp_shared_memory.git#egg=mp_shared_memory
   - pip install --progress-bar off git+https://github.com/chunglabmit/blockfs.git#egg=blockfs
   - pip install --progress-bar off -r requirements.txt
   - pip install --progress-bar off nose
