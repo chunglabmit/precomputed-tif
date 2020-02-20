@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import unittest
-from precomputed_tif.blockfs_stack import BlockfsStack, Blosc
+from precomputed_tif.blockfs_stack import BlockfsStack
 from precomputed_tif.utils import make_case
 from blockfs import Directory
 import logging

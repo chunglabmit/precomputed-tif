@@ -1,11 +1,8 @@
-import glob
-from numcodecs import Blosc
 import logging
+from mp_shared_memory import SharedMemory
 import multiprocessing
 import numpy as np
 import os
-import threading
-import json
 import tifffile
 import tqdm
 from blockfs import Directory, Compression
@@ -56,15 +53,11 @@ class BlockfsStack(StackBase):
         directories[directory_id] = directory
 
         with multiprocessing.Pool(n_cores) as pool:
-            futures = []
-            for z0a, z1a in zip(z0, z1):
+            for z0a, z1a in tqdm.tqdm(zip(z0, z1)):
                 files = self.files[z0a:z1a]
-                futures.append(pool.apply_async(
-                    BlockfsStack.write_one_level_1,
-                    (directory_id, files,
-                     x0, x1, y0, y1, z0a, z1a)))
-            for future in tqdm.tqdm(futures, disable=silent):
-                future.get()
+                BlockfsStack.write_one_level_1(
+                    pool, directory_id, files,
+                     x0, x1, y0, y1, z0a, z1a)
             try:
                 acc = 0
                 for bw in directory.writers:
@@ -76,20 +69,31 @@ class BlockfsStack(StackBase):
             directory.close()
 
     @staticmethod
-    def write_one_level_1(directory_id, files,
+    def read_tiff(shm, z, path):
+        with shm.txn() as m:
+            m[z] = tifffile.imread(path)
+
+    @staticmethod
+    def write_one_level_1(pool, directory_id, files,
                           x0, x1, y0, y1, z0a, z1a):
         directory = directories[directory_id]
         x_extent = directory.x_extent
         y_extent = directory.y_extent
         dtype = directory.dtype
+        shm = SharedMemory((z1a - z0a, y_extent, x_extent),
+                           dtype)
         img = np.zeros((64, y0[-1] + 64, x0[-1] + 64), dtype)
+        futures = []
         for z, file in zip(range(z0a, z1a), files):
-            img[z - z0a, :y_extent, :x_extent] = \
-                tifffile.imread(file)
-        for (x0a, x1a), (y0a, y1a) in itertools.product(
-                zip(x0, x1), zip(y0, y1)):
-            block = img[:z1a - z0a, y0a:y1a, x0a:x1a]
-            directory.write_block(block, x0a, y0a, z0a)
+            futures.append(pool.apply_async(BlockfsStack.read_tiff,
+                                            (shm, z-z0a, file)))
+        for future in futures:
+            future.get()
+        with shm.txn() as img:
+            for (x0a, x1a), (y0a, y1a) in itertools.product(
+                    zip(x0, x1), zip(y0, y1)):
+                block = img[:z1a - z0a, y0a:y1a, x0a:x1a]
+                directory.write_block(block, x0a, y0a, z0a)
 
     def write_level_n(self, level, silent=False,
                       n_cores = min(os.cpu_count(), 12)):
