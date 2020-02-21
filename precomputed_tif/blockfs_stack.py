@@ -53,7 +53,7 @@ class BlockfsStack(StackBase):
         directories[directory_id] = directory
 
         with multiprocessing.Pool(n_cores) as pool:
-            for z0a, z1a in tqdm.tqdm(zip(z0, z1)):
+            for z0a, z1a in tqdm.tqdm(list(zip(z0, z1))):
                 files = self.files[z0a:z1a]
                 BlockfsStack.write_one_level_1(
                     pool, directory_id, files,
