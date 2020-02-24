@@ -26,8 +26,11 @@ The command-line is:
 ```commandline
 precomputed-tif --source <source-glob> \
                 --dest <destination-folder> \
-                --levels <levels>
-
+                [--levels <levels>] \
+                [--voxel-size <voxel-size>] \
+                [--format <format>] \
+                [--n-cores <n-cores>] \
+                [--log <log-level>]
 ```
 
 where
@@ -38,6 +41,16 @@ the mipmap levels of the precomputed tifs.
 * **levels** the number of mipmap levels. The first level has the
 same resolution as the input. Each subsequent level has half the
 resolution as the previous level.
+* **voxel-size** is the voxel size in microns as three comma-separated values,
+                 e.g. "1.8,1.8,2.0" in X, Y, Z order.  The default is
+                 "1.8,1.8,2.0" which is the voxel size for 4x SPIM.
+* **format** is "tiff", "zarr" or "blockfs" to store the image data blocks as
+                 3D TIFF files, ZARR array blocks or in the blockfs format.
+                 The default is "tiff",  but "blockfs" is the most scalable
+                 for very large volumes.
+* **n-cores** is the number of processes that will be used for parallel
+                 processing.
+* **log** is the logging level, one of "DEBUG", "INFO", "WARNING" or "ERROR".
 
 ### cors-webserver
 

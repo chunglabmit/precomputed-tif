@@ -30,6 +30,11 @@ def parse_args(args=sys.argv[1:]):
     parser.add_argument("--log",
                         default="WARNING",
                         help="The log level for logging messages")
+    parser.add_argument("--voxel-size",
+                        default="1.8,1.8,2.0",
+                        help="The voxel size in microns, default is for 4x "
+                             "SPIM. This should be three comma-separated "
+                             "values, e.g. \"1.8,1.8,2.0\".")
     return parser.parse_args(args)
 
 
@@ -53,7 +58,8 @@ def main(args=sys.argv[1:]):
         else:
             kwargs = dict(n_cores=args.n_cores)
 
-    stack.write_info_file(args.levels)
+    voxel_size = [int(float(_) * 1000) for _ in args.voxel_size.split(",")]
+    stack.write_info_file(args.levels, voxel_size)
     stack.write_level_1(**kwargs)
     for level in range(2, args.levels+1):
         stack.write_level_n(level, **kwargs)

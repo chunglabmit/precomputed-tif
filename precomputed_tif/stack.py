@@ -121,10 +121,12 @@ class StackBase:
         z1[-1] = (self.z_extent + resolution - 1) // resolution
         return z1
 
-    def write_info_file(self, n_levels):
+    def write_info_file(self, n_levels, voxel_size=(1800, 1800, 2000)):
         """Write the precomputed info file that defines the volume
 
         :param n_levels: the number of levels to be written
+        :param voxel_size: the size of a voxel in the X, Y and Z direction
+        in nanometers
         """
         if not os.path.exists(self.dest):
             os.mkdir(self.dest)
@@ -142,7 +144,7 @@ class StackBase:
                 dict(chunk_sizes=[[64, 64, 64]],
                      encoding="raw",
                      key="%d_%d_%d" % (resolution, resolution, resolution),
-                     resolution=[resolution, resolution, resolution],
+                     resolution=[resolution * _ for _ in voxel_size],
                      size=[x_extent, y_extent, z_extent],
                      voxel_offset=[0, 0, 0]))
             z_extent = (z_extent + 1) // 2

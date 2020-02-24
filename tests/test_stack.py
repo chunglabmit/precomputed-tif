@@ -44,7 +44,8 @@ class TestStack(unittest.TestCase):
             self.assertSequenceEqual(scales[0]["chunk_sizes"][0], (64, 64, 64))
             self.assertEqual(scales[0]["encoding"], "raw")
             self.assertEqual(scales[0]["key"], "1_1_1")
-            self.assertSequenceEqual(scales[0]["resolution"], (1, 1, 1))
+            self.assertSequenceEqual(scales[0]["resolution"],
+                                     (1800, 1800, 2000))
             self.assertSequenceEqual(scales[0]["size"], (300, 200, 101))
             self.assertSequenceEqual(scales[0]["voxel_offset"], (0, 0, 0))
             self.assertSequenceEqual(scales[1]["size"], (150, 100, 51))
