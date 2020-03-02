@@ -76,8 +76,9 @@ class Info:
             level = (level, level, level)
         else:
             level = tuple(level)
+        key = "_".join([str(_) for _ in level])
         for scale in self.d["scales"]:
-            if tuple(scale["resolution"]) == level:
+            if scale["key"] == key:
                 return Scale(scale)
         else:
             raise KeyError("No such level: %s" % str(level))
