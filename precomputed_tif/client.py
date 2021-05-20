@@ -206,9 +206,9 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
         if x1c > x1:
             chunk = chunk[:, :, :x1-x0c]
             x1c = x1
-        result[z0c - z0:z1c - z0,
-               y0c - y0:y1c - y0,
-               x0c - x0:x1c - x0] = chunk
+        result[z0c - z0:z0c - z0 + chunk.shape[0],
+               y0c - y0:y0c - y0 + chunk.shape[1],
+               x0c - x0:x0c - x0 + chunk.shape[2]] = chunk
     return result
 
 

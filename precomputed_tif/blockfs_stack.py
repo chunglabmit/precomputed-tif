@@ -28,26 +28,14 @@ class BlockfsStack(StackBase):
     def write_level_1(self, silent=False,
                       n_cores=min(os.cpu_count(), 4)):
         """Write the first mipmap level, loading from tiff planes"""
-        dest = os.path.join(self.dest, "1_1_1")
-        if not os.path.exists(dest):
-            os.mkdir(dest)
         z0 = self.z0(1)
         z1 = self.z1(1)
         y0 = self.y0(1)
         y1 = self.y1(1)
         x0 = self.x0(1)
         x1 = self.x1(1)
-        x_extent = self.x_extent
-        y_extent = self.y_extent
-        z_extent = self.z_extent
-        dtype = self.dtype
-        directory_filename = \
-            os.path.abspath(os.path.join(dest, BlockfsStack.DIRECTORY_FILENAME))
-        block_files = [directory_filename + ".%d" % _ for _ in range(n_cores)]
 
-        directory = Directory(x_extent, y_extent, z_extent, dtype,
-                              directory_filename=directory_filename,
-                              block_filenames=block_files)
+        directory = self.make_l1_directory(n_cores)
         directory.create()
         directory.start_writer_processes()
         directory_id = uuid.uuid4()
@@ -68,6 +56,29 @@ class BlockfsStack(StackBase):
             except:
                 pass
             directory.close()
+
+    def make_l1_directory(self, n_cores):
+        """
+        Make the level 1 directory object for this stack
+
+        :param n_cores: # of writers to use
+        :return: blockfs directory structure (needs directory.create(),
+        directory.start_writer_processes() and directory.close()
+        """
+        dest = os.path.join(self.dest, "1_1_1")
+        if not os.path.exists(dest):
+            os.mkdir(dest)
+        x_extent = self.x_extent
+        y_extent = self.y_extent
+        z_extent = self.z_extent
+        dtype = self.dtype
+        directory_filename = \
+            os.path.abspath(os.path.join(dest, BlockfsStack.DIRECTORY_FILENAME))
+        block_files = [directory_filename + ".%d" % _ for _ in range(n_cores)]
+        directory = Directory(x_extent, y_extent, z_extent, dtype,
+                              directory_filename=directory_filename,
+                              block_filenames=block_files)
+        return directory
 
     @staticmethod
     def read_tiff(shm, z, path):
