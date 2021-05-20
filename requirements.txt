@@ -2,6 +2,7 @@ blockfs
 numpy
 numcodecs
 requests
+scipy
 tifffile
 tqdm
 zarr

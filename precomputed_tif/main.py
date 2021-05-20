@@ -3,7 +3,7 @@ import logging
 import sys
 import zarr
 
-from .stack import Stack
+from .stack import Stack, PType
 from .zarr_stack import ZarrStack
 from .blockfs_stack import BlockfsStack
 
@@ -22,7 +22,7 @@ def parse_args(args=sys.argv[1:]):
     parser.add_argument("--format",
                         type=str,
                         help="destination format (tiff, zarr, blockfs)",
-                        default='tiff')
+                        default='blockfs')
     parser.add_argument("--n-cores",
                         type=int,
                         default=None,
@@ -35,12 +35,16 @@ def parse_args(args=sys.argv[1:]):
                         help="The voxel size in microns, default is for 4x "
                              "SPIM. This should be three comma-separated "
                              "values, e.g. \"1.8,1.8,2.0\".")
+    parser.add_argument("--segmentation",
+                        help="If present, the volume will be saved as a segmentation instead of a 3d image",
+                        action="store_true")
     return parser.parse_args(args)
 
 
 def main(args=sys.argv[1:]):
     args = parse_args(args)
     logging.basicConfig(level=getattr(logging, args.log.upper()))
+    ptype = PType.SEGMENTATION if args.segmentation else PType.IMAGE
     if args.format == 'zarr':
         if args.source.endswith('.tif') or args.source.endswith('.tiff'):
             stack = ZarrStack(args.source, args.dest)
@@ -49,9 +53,9 @@ def main(args=sys.argv[1:]):
             store = zarr.NestedDirectoryStore(args.source)
             stack = ZarrStack(store, args.dest)
     elif args.format == 'blockfs':
-        stack = BlockfsStack(args.source, args.dest)
+        stack = BlockfsStack(args.source, args.dest, ptype=ptype)
     else:
-        stack = Stack(args.source, args.dest)
+        stack = Stack(args.source, args.dest, ptype=ptype)
     if args.format != 'zarr':
         if args.n_cores is None:
             kwargs = {}

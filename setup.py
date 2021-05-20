@@ -17,6 +17,7 @@ setup(
         "numpy",
         "numcodecs",
         "requests",
+        "scipy",
         "tifffile",
         "tqdm",
         "zarr"

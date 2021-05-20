@@ -2,6 +2,7 @@ import logging
 from mp_shared_memory import SharedMemory
 import multiprocessing
 import numpy as np
+from scipy import ndimage
 import os
 import tifffile
 import tqdm
@@ -9,7 +10,7 @@ from blockfs import Directory, Compression
 import uuid
 import itertools
 
-from .stack import StackBase
+from .stack import StackBase, PType
 
 logger = logging.getLogger("precomputed_tif.blockfs_stack")
 directories = {}
@@ -18,8 +19,8 @@ class BlockfsStack(StackBase):
 
     DIRECTORY_FILENAME="precomputed.blockfs"
 
-    def __init__(self, glob_expr, dest):
-        super(BlockfsStack, self).__init__(glob_expr, dest)
+    def __init__(self, glob_expr, dest, ptype=PType.IMAGE):
+        super(BlockfsStack, self).__init__(glob_expr, dest, ptype=ptype)
 
     def fname(self, level):
         return StackBase.resolution(level) + ".blockfs"
@@ -142,6 +143,10 @@ class BlockfsStack(StackBase):
         xsi_max = self.n_x(level - 1)
         ysi_max = self.n_y(level - 1)
         zsi_max = self.n_z(level - 1)
+        if self.ptype == PType.IMAGE:
+            fn = BlockfsStack.write_one_level_n
+        else:
+            fn = BlockfsStack.write_stack_level_n
         with multiprocessing.Pool(n_cores) as pool:
             try:
                 futures = []
@@ -150,7 +155,7 @@ class BlockfsStack(StackBase):
                         range(self.n_y(level)),
                         range(self.n_z(level))):
                     futures.append(pool.apply_async(
-                        BlockfsStack.write_one_level_n,
+                        fn,
                         (src_directory_id, dest_directory_id,
                          x0d, x0s, x1d, x1s, xidx, xsi_max,
                          y0d, y0s, y1d, y1s, yidx, ysi_max,
@@ -195,4 +200,40 @@ class BlockfsStack(StackBase):
                 ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
                 xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] += 1
         block[hits > 0] = block[hits > 0] // hits[hits > 0]
+        dest_directory.write_block(block, x0d[xidx], y0d[yidx], z0d[zidx])
+
+    @staticmethod
+    def write_stack_level_n(src_directory_id, dest_directory_id,
+                          x0d, x0s, x1d, x1s, xidx, xsi_max,
+                          y0d, y0s, y1d, y1s, yidx, ysi_max,
+                          z0d, z0s, z1d, z1s, zidx, zsi_max):
+        src_directory = directories[src_directory_id]
+        dest_directory = directories[dest_directory_id]
+        block = np.zeros((z1d[zidx] - z0d[zidx],
+                          y1d[yidx] - y0d[yidx],
+                          x1d[xidx] - x0d[xidx]), np.uint64)
+        hits = np.zeros((z1d[zidx] - z0d[zidx],
+                         y1d[yidx] - y0d[yidx],
+                         x1d[xidx] - x0d[xidx]), np.uint64)
+        for xsi1, ysi1, zsi1 in itertools.product((0, 1), (0, 1), (0, 1)):
+            xsi = xsi1 + xidx * 2
+            if xsi == xsi_max:
+                continue
+            ysi = ysi1 + yidx * 2
+            if ysi == ysi_max:
+                continue
+            zsi = zsi1 + zidx * 2
+            if zsi == zsi_max:
+                continue
+            src_block = src_directory.read_block(x0s[xsi], y0s[ysi], z0s[zsi])
+            for offx, offy, offz in \
+                    itertools.product((0, 1), (0, 1), (0, 1)):
+                dsblock = src_block[offz::2, offy::2, offx::2]
+                block[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
+                      ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
+                      xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] = np.maximum(
+                    block[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
+                          ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
+                          xsi1 * 32:xsi1 * 32 + dsblock.shape[2]],
+                    dsblock.astype(block.dtype))
         dest_directory.write_block(block, x0d[xidx], y0d[yidx], z0d[zidx])

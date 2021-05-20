@@ -1,3 +1,4 @@
+import enum
 import glob
 import json
 import itertools
@@ -7,15 +8,19 @@ import os
 import tqdm
 import multiprocessing
 
+class PType(enum.Enum):
+    IMAGE="image"
+    SEGMENTATION="segmentation"
 
 class StackBase:
-    def __init__(self, glob_expr, dest, dtype=None):
+    def __init__(self, glob_expr, dest, dtype=None, ptype=PType.IMAGE):
         """
 
         :param glob_expr: the glob file expression for capturing the files in
         the stack, e.g. "/path/to/img_*.tif*"
         :param dest: the destination root directory for the precomputed files
         """
+        self.ptype = ptype
         if isinstance(glob_expr, (tuple, list)) and len(glob_expr) == 3:
             self.z_extent, self.y_extent, self.x_extent = glob_expr
             self.dtype = dtype or np.dtype(np.uint16)
@@ -133,7 +138,7 @@ class StackBase:
         d = dict(data_type = self.dtype.name,
                  mesh="mesh",
                  num_channels=1,
-                 type="image")
+                 type=self.ptype.value)
         scales = []
         z_extent = self.z_extent
         y_extent = self.y_extent
@@ -157,8 +162,8 @@ class StackBase:
 
 class Stack(StackBase):
 
-    def __init__(self, glob_expr, dest):
-        super(Stack, self).__init__(glob_expr, dest)
+    def __init__(self, glob_expr, dest, ptype=PType.IMAGE):
+        super(Stack, self).__init__(glob_expr, dest, ptype=ptype)
 
     def fname(self, level, x0, x1, y0, y1, z0, z1):
         return Stack.sfname(self.dest, level, x0, x1, y0, y1, z0, z1)
