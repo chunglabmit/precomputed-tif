@@ -99,17 +99,7 @@ class NGFFStack(StackBase):
         y1 = self.y1(1)
         x0 = self.x0(1)
         x1 = self.x1(1)
-        x_extent = self.x_extent
-        y_extent = self.y_extent
-        dataset = self.zgroup.create_dataset(
-            "0",
-            shape=(1, 1, self.z_extent, y_extent, x_extent),
-            chunks=(1, 1, self.cz(), self.cy(), self.cx()),
-            dtype=self.dtype,
-            compressor=self.compressor,
-            fill_value=0,
-            overwrite=True
-        )
+        dataset = self.create_dataset(1)
         my_id = uuid.uuid4()
         try:
             DATASETS[my_id] = dataset
@@ -141,19 +131,8 @@ class NGFFStack(StackBase):
 
     def write_level_n(self, level,
                       n_cores=min(multiprocessing.cpu_count(), 13)):
-        src_dataset = self.zgroup[str(level - 2)]
-        x_extent, y_extent, z_extent = [
-            (extent + self.resolution(level) - 1) //  self.resolution(level)
-            for extent in (self.x_extent, self.y_extent, self.z_extent)]
-        dest_dataset = self.zgroup.create_dataset(
-            str(level-1),
-            shape=(1, 1, z_extent, y_extent, x_extent),
-            chunks=(1, 1, self.cz(), self.cy(), self.cx()),
-            dtype=self.dtype,
-            compressor=self.compressor,
-            fill_value=0,
-            overwrite=True
-        )
+        src_dataset = self.get_dataset(level - 1)
+        dest_dataset = self.create_dataset(level)
         src_id = uuid.uuid4()
         dest_id = uuid.uuid4()
         DATASETS[src_id] = src_dataset
@@ -175,6 +154,34 @@ class NGFFStack(StackBase):
         finally:
             del DATASETS[src_id]
             del DATASETS[dest_id]
+
+    def get_dataset(self, level):
+        """
+        Get the ZARR array at a given level
+
+        :param level: 1-based index of the level
+        """
+        return self.zgroup[str(level - 1)]
+
+    def create_dataset(self, level:int):
+        """
+        Create a ZARR dataset at the given level.
+
+        :param level: level, starting at index=1
+        """
+        x_extent, y_extent, z_extent = [
+            (extent + self.resolution(level) - 1) // self.resolution(level)
+            for extent in (self.x_extent, self.y_extent, self.z_extent)]
+        dest_dataset = self.zgroup.create_dataset(
+            str(level - 1),
+            shape=(1, 1, z_extent, y_extent, x_extent),
+            chunks=(1, 1, self.cz(), self.cy(), self.cx()),
+            dtype=self.dtype,
+            compressor=self.compressor,
+            fill_value=0,
+            overwrite=True
+        )
+        return dest_dataset
 
     @staticmethod
     def write_one_level_n(src_id, dest_id, x0, x1, y0, y1, z0, z1, ptype):
