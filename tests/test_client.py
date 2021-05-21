@@ -1,10 +1,17 @@
 import json
+import pathlib
 import unittest
 import unittest.mock
 import urllib.request
 import numpy as np
 import precomputed_tif.client
+from precomputed_tif import ZarrStack
+from precomputed_tif.blockfs_stack import BlockfsStack
 from precomputed_tif.client import read_chunk, clear_cache, ArrayReader
+from precomputed_tif.ngff_stack import NGFFStack
+from precomputed_tif.stack import StackBase, Stack
+from precomputed_tif.utils import make_case
+
 
 class MockResponse:
 
@@ -104,7 +111,6 @@ class MockUrlOpen:
                                   x0-xoff:x1-xoff]
                 return MockResponse(np.ascontiguousarray(chunk).data)
 
-
 class TestClient(unittest.TestCase):
 
     def setUp(self):
@@ -160,6 +166,35 @@ class TestClient(unittest.TestCase):
             data = a[10:-108, 30:-88, 50:-68]
             np.testing.assert_array_equal(
                 data, mock.data[10:-108, 30:-88, 50:-68])
+
+    def teesstt_file_array_reader(self, format, klass:StackBase):
+        with make_case(np.uint16, (100, 201, 300), klass=klass)\
+                as (stack, npstack):
+            if isinstance(stack, NGFFStack):
+                stack.create()
+            stack.write_info_file(2)
+            stack.write_level_1()
+            stack.write_level_n(2)
+            url = pathlib.Path(stack.dest).as_uri()
+            ar = ArrayReader(url, format=format)
+            a = ar[:, :, :]
+            np.testing.assert_array_equal(a, npstack)
+            ar = ArrayReader(url, format=format, level=2)
+            value = int(ar[0, 0, 0])
+            expected = np.mean(npstack[:2, :2, :2])
+            self.assertLess(abs(value - expected), 1)
+
+    def test_blockfs(self):
+        self.teesstt_file_array_reader("blockfs", BlockfsStack)
+
+    def test_tiff(self):
+        self.teesstt_file_array_reader("tiff", Stack)
+
+    def test_zarr(self):
+        self.teesstt_file_array_reader("zarr", ZarrStack)
+
+    def test_ngff(self):
+        self.teesstt_file_array_reader("ngff", NGFFStack)
 
 if __name__ == '__main__':
     unittest.main()

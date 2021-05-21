@@ -15,6 +15,7 @@ from .stack import StackBase, PType
 logger = logging.getLogger("precomputed_tif.blockfs_stack")
 directories = {}
 
+
 class BlockfsStack(StackBase):
 
     DIRECTORY_FILENAME="precomputed.blockfs"

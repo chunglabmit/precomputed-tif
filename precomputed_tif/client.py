@@ -11,6 +11,8 @@ import os
 import tifffile
 import time
 
+import zarr
+
 __cache = {}
 
 class Scale:
@@ -181,6 +183,24 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
                     unquote(directory_parse.path))
                 directory = Directory.open(directory_path)
                 chunk = directory.read_block(x0c, y0c, z0c)
+            elif format == 'ngff':
+                ngff_parse = urlparse(url)
+                ngff_path = os.path.join(ngff_parse.netloc,
+                                         unquote(ngff_parse.path))
+                key = str(level - 1)
+                storage = zarr.NestedDirectoryStore(ngff_path)
+                group = zarr.group(storage)
+                dataset = group[key]
+                dataset.read_only = True
+                chunk = dataset[0, 0, z0c:z1c, y0c:y1c, x0c:x1c]
+            elif format == 'zarr':
+                zarr_url = url + "/" + scale.key
+                zarr_parse = urlparse(zarr_url)
+                zarr_path = os.path.join(zarr_parse.netloc,
+                                         unquote(zarr_parse.path))
+                storage = zarr.NestedDirectoryStore(zarr_path)
+                dataset = zarr.Array(storage)
+                chunk = dataset[z0c:z1c, y0c:y1c, x0c:x1c]
             else:
                 raise NotImplementedError("Can't read %s yet" % format)
         else:
