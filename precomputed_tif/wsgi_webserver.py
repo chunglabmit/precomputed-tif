@@ -31,6 +31,8 @@ import json
 import os
 import pathlib
 
+import numpy as np
+
 
 def file_not_found(dest, start_response):
     start_response("404 Not found",
@@ -94,6 +96,28 @@ def serve_precomputed(environ, start_response, config_file):
                 filename = os.path.join(filename, "precomputed.blockfs")
                 directory = Directory.open(filename)
                 chunk = directory.read_block(x0, y0, z0)
+                data = chunk.tostring("C")
+                start_response(
+                    "200 OK",
+                    [("Content-type", "application/octet-stream"),
+                     ("Content-Length", str(len(data))),
+                     ('Access-Control-Allow-Origin', '*')])
+                return [data]
+            elif source["format"] == "ngff":
+                import zarr
+                filename, x0, x1, y0, y1, z0, z1 = \
+                    parse_filename(dest, filename)
+                root, level = os.path.split(filename)
+                lx, ly, lz = [int(_) for _ in level.split("_")]
+                llevel = int(np.round(np.log2(lx), 0))
+                store = zarr.NestedDirectoryStore(root)
+                group = zarr.group(store)
+                a = group[llevel]
+                _, _, zs, ys, xs = a.chunks
+                z1 = min(a.shape[2], z0 + zs)
+                y1 = min(a.shape[3], y0 + ys)
+                x1 = min(a.shape[4], x0 + xs)
+                chunk = a[0, 0, z0:z1, y0:y1, x0:x1]
                 data = chunk.tostring("C")
                 start_response(
                     "200 OK",

@@ -3,6 +3,7 @@ import logging
 import sys
 import zarr
 
+from precomputed_tif.ngff_stack import NGFFStack
 from .stack import Stack, PType
 from .zarr_stack import ZarrStack
 from .blockfs_stack import BlockfsStack
@@ -54,6 +55,9 @@ def main(args=sys.argv[1:]):
             stack = ZarrStack(store, args.dest)
     elif args.format == 'blockfs':
         stack = BlockfsStack(args.source, args.dest, ptype=ptype)
+    elif args.format == 'ngff':
+        stack = NGFFStack(args.source, args.dest)
+        stack.create()
     else:
         stack = Stack(args.source, args.dest, ptype=ptype)
     if args.format != 'zarr':
