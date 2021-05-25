@@ -130,6 +130,7 @@ class NGFFStack(StackBase):
                 img[:, :, :, y0a:y1a, x0a:x1a]
 
     def write_level_n(self, level,
+                      silent=False,
                       n_cores=min(multiprocessing.cpu_count(), 13)):
         src_dataset = self.get_dataset(level - 1)
         dest_dataset = self.create_dataset(level)
@@ -149,7 +150,8 @@ class NGFFStack(StackBase):
                         (src_id, dest_id, x0, x1, y0, y1, z0, z1, self.ptype)
                     ))
                 for future in tqdm.tqdm(futures,
-                                        desc="Writing level %d" % level):
+                                        desc="Writing level %d" % level,
+                                        disable=silent):
                     future.get()
         finally:
             del DATASETS[src_id]
