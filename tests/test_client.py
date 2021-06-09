@@ -1,5 +1,8 @@
+import contextlib
 import json
 import pathlib
+import shutil
+import tempfile
 import unittest
 import unittest.mock
 import urllib.request
@@ -8,6 +11,7 @@ import precomputed_tif.client
 from precomputed_tif import ZarrStack
 from precomputed_tif.blockfs_stack import BlockfsStack
 from precomputed_tif.client import read_chunk, clear_cache, ArrayReader
+from precomputed_tif.client import DANDIArrayReader
 from precomputed_tif.ngff_stack import NGFFStack
 from precomputed_tif.stack import StackBase, Stack
 from precomputed_tif.utils import make_case
@@ -195,6 +199,66 @@ class TestClient(unittest.TestCase):
 
     def test_ngff(self):
         self.teesstt_file_array_reader("ngff", NGFFStack)
+
+
+def make_bids_transform(xoff, yoff, zoff):
+    return [dict(
+        SourceReferenceFrame="original",
+        TargetReferenceFrame="stitched",
+        TransformationType="translation-3d",
+        TransformationParameters= {
+                "XOffset": xoff,
+                "YOffset": yoff,
+                "ZOffset": zoff
+            }
+        )]
+
+@contextlib.contextmanager
+def make_dandi_case(y_offset):
+    with make_case(np.uint16, (100, 200, 300),
+                   klass=NGFFStack,
+                   destname="chunk1_spim.ngff") as (stack1, volume1):
+        stack1.create()
+        stack1.write_info_file(1)
+        stack1.write_level_1()
+        with make_case(np.uint16, (100, 200, 300),
+                       klass=NGFFStack,
+                       destname="chunk2_spim.ngff") as (stack2, volume2):
+            stack2.create()
+            stack2.write_info_file(1)
+            stack2.write_level_1()
+            dest1 = pathlib.Path(stack1.dest)
+            url1 = dest1.as_uri()
+            dest2 = pathlib.Path(stack2.dest)
+            url2 = dest2.as_uri()
+            xform_path1 = dest1.parent / (dest1.stem[:-4] + "transforms.json")
+            xform_path2 = dest2.parent / (dest2.stem[:-4] + "transforms.json")
+            with xform_path1.open("w") as fd:
+                json.dump(make_bids_transform(0, 0, 0), fd, indent=2)
+            with xform_path2.open("w") as fd:
+                json.dump(make_bids_transform(0, y_offset, 0), fd, indent=2)
+            yield (url1, volume1), (url2, volume2)
+
+
+class TestDandi(unittest.TestCase):
+    def test_single(self):
+        with make_dandi_case(100) as ((url1, volume1), (url2, volume2)):
+            ar = DANDIArrayReader([url1, url2])
+            self.assertSequenceEqual((100, 300, 300), ar.shape)
+            np.testing.assert_array_equal(ar[:10, :10, :10],
+                                          volume1[:10, :10, :10])
+            np.testing.assert_array_equal(ar[:10, 290:, :10],
+                                          volume2[:10, -10:, :10])
+
+    def test_double(self):
+        with make_dandi_case(100) as ((url1, volume1), (url2, volume2)):
+            ar = DANDIArrayReader([url1, url2])
+            middle = ar[:10, 100:200, :10]
+            bottom = volume1[:10, 100:, :10]
+            top = volume2[:10, :100, :10]
+            minval = np.minimum(bottom, top)
+            maxval = np.maximum(bottom, top)
+            self.assertTrue(np.all((middle >= minval) & (middle <= maxval)))
 
 if __name__ == '__main__':
     unittest.main()
