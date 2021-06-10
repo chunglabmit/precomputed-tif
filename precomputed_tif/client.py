@@ -187,7 +187,7 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
                 ngff_parse = urlparse(url)
                 ngff_path = os.path.join(ngff_parse.netloc,
                                          unquote(ngff_parse.path))
-                key = str(level - 1)
+                key = str(int(np.log2(level)))
                 storage = zarr.NestedDirectoryStore(ngff_path)
                 group = zarr.group(storage)
                 dataset = group[key]
@@ -341,7 +341,7 @@ class DANDIArrayReader(ArrayReaderBase):
             with urlopen(xform_url) as fd:
                 xform = json.load(fd)
             self.offsets.append(
-                tuple(xform[0]["TransformationParameters"][_] // level
+                tuple(int(xform[0]["TransformationParameters"][_]) // level
                       for _ in ("ZOffset", "YOffset", "XOffset")))
 
     def x0(self, idx):
@@ -407,8 +407,8 @@ class DANDIArrayReader(ArrayReaderBase):
         y1a = min(y1c, y1)
         z0a = max(z0c, z0)
         z1a = min(z1c, z1)
-        chunk = ar[x0a-x0c:x1a-x0c, y0a-y0c:y1a-y0c, z0a-z0c:z1a - z0c]
-        data[x0a-x0:x1a-x0, y0a-y0:y1a-y0, z0a-z0:z1a-z0] += chunk
+        chunk = ar[z0a-z0c:z1a-z0c, y0a-y0c:y1a-y0c, x0a-x0c:x1a - x0c]
+        data[z0a-z0:z1a-z0, y0a-y0:y1a-y0, x0a-x0:x1a-x0] += chunk
         nx = np.arange(x0-x0c, x1-x0c)
         fx = np.arange(x1c-x0-1, x1c-x1-1, -1)
         ny = np.arange(y0-y0c, y1-y0c)
