@@ -13,7 +13,11 @@ class PType(enum.Enum):
     SEGMENTATION="segmentation"
 
 class StackBase:
-    def __init__(self, glob_expr, dest, dtype=None, ptype=PType.IMAGE):
+    def __init__(self,
+                 glob_expr,
+                 dest,
+                 dtype=None,
+                 ptype=PType.IMAGE):
         """
 
         :param glob_expr: the glob file expression for capturing the files in
@@ -31,6 +35,7 @@ class StackBase:
             self.y_extent, self.x_extent = img0.shape
             self.dtype = dtype or img0.dtype
         self.dest = dest
+        self.chunksize = (64, 64, 64)
 
     @staticmethod
     def resolution(level):
@@ -42,13 +47,25 @@ class StackBase:
         """
         return 2 ** (level - 1)
 
+    def cx(self):
+        """Chunksize in X direction"""
+        return self.chunksize[2]
+
+    def cy(self):
+        """Chunksize in Y direction"""
+        return self.chunksize[1]
+
+    def cz(self):
+        """Chunksize in Z direction"""
+        return self.chunksize[0]
+
     def n_x(self, level):
         """The number of blocks in the X direction at the given level
 
         :param level: mipmap level, starting at 1
         :return: # of blocks in the X direction
         """
-        return (self.x_extent // (2 ** (level - 1)) + 63) // 64
+        return (self.x_extent // (2 ** (level - 1)) + self.cx()-1) // self.cx()
 
     def x0(self, level):
         """The starting X coordinates at a particular level
@@ -57,7 +74,8 @@ class StackBase:
         :return: an array of starting X coordinates
         """
         resolution = self.resolution(level)
-        return np.arange(0, (self.x_extent + resolution - 1) // resolution, 64)
+        return np.arange(0, (self.x_extent + resolution - 1) // resolution,
+                         self.cx())
 
     def x1(self, level):
         """The ending X coordinates at a particular level
@@ -66,7 +84,7 @@ class StackBase:
         :return: an array of ending X coordinates
         """
         resolution = self.resolution(level)
-        x1 = self.x0(level) + 64
+        x1 = self.x0(level) + self.cx()
         x1[-1] = (self.x_extent + resolution - 1) // resolution
         return x1
 
@@ -76,7 +94,7 @@ class StackBase:
         :param level: mipmap level, starting at 1
         :return: # of blocks in the Y direction
         """
-        return (self.y_extent // (2 ** (level - 1)) + 63) // 64
+        return (self.y_extent // (2 ** (level - 1)) + self.cy()-1) // self.cy()
 
     def y0(self, level):
         """The starting Y coordinates at a particular level
@@ -85,7 +103,8 @@ class StackBase:
         :return: an array of starting Y coordinates
         """
         resolution = self.resolution(level)
-        return np.arange(0, (self.y_extent + resolution - 1) // resolution, 64)
+        return np.arange(0, (self.y_extent + resolution - 1) // resolution,
+                         self.cy())
 
     def y1(self, level):
         """The ending Y coordinates at a particular level
@@ -94,7 +113,7 @@ class StackBase:
         :return: an array of ending Y coordinates
         """
         resolution = self.resolution(level)
-        y1 = self.y0(level) + 64
+        y1 = self.y0(level) + self.cy()
         y1[-1] = (self.y_extent + resolution - 1) // resolution
         return y1
 
@@ -104,7 +123,7 @@ class StackBase:
         :param level: mipmap level, starting at 1
         :return: # of blocks in the Z direction
         """
-        return (self.z_extent // (2 ** (level - 1)) + 63) // 64
+        return (self.z_extent // (2 ** (level - 1)) + self.cz()-1) // self.cz()
 
     def z0(self, level):
         """The starting Z coordinates at a particular level
@@ -113,7 +132,8 @@ class StackBase:
         :return: an array of starting Z coordinates
         """
         resolution = self.resolution(level)
-        return np.arange(0, (self.z_extent + resolution - 1) // resolution, 64)
+        return np.arange(0, (self.z_extent + resolution - 1) // resolution,
+                         self.cz())
 
     def z1(self, level):
         """The ending Z coordinates at a particular level
@@ -122,7 +142,7 @@ class StackBase:
         :return: an array of ending Z coordinates
         """
         resolution = self.resolution(level)
-        z1 = self.z0(level) + 64
+        z1 = self.z0(level) + self.cz()
         z1[-1] = (self.z_extent + resolution - 1) // resolution
         return z1
 
@@ -146,7 +166,7 @@ class StackBase:
         for level in range(1, n_levels + 1):
             resolution = self.resolution(level)
             scales.append(
-                dict(chunk_sizes=[[64, 64, 64]],
+                dict(chunk_sizes=[self.chunksize],
                      encoding="raw",
                      key="%d_%d_%d" % (resolution, resolution, resolution),
                      resolution=[resolution * _ for _ in voxel_size],
@@ -216,9 +236,9 @@ class Stack(StackBase):
     @staticmethod
     def write_one_level_1(dest, dtype, files, x_extent, y_extent,
                           x0, x1, y0, y1, z0a, z1a):
-        img = np.zeros((64, y0[-1] + 64, x0[-1] + 64), dtype)
+        img = np.zeros((z1a-z0a, y_extent, x_extent), dtype)
         for z, file in zip(range(z0a, z1a), files):
-            img[z - z0a, :y_extent, :x_extent] = \
+            img[z - z0a] = \
                 tifffile.imread(file)
         for (x0a, x1a), (y0a, y1a) in itertools.product(
                 zip(x0, x1), zip(y0, y1)):

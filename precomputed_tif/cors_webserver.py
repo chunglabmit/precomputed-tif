@@ -38,6 +38,7 @@ FORMAT_RAW = "raw"
 FORMAT_TIFF = "tiff"
 FORMAT_ZARR = "zarr"
 FORMAT_BLOCKFS = "blockfs"
+FORMAT_NGFF = "ngff"
 
 args = None
 
@@ -71,54 +72,61 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 super(RequestHandler, self).do_GET()
                 return
             chunk = tifffile.imread(path)
-            byteorder = "C"
-            data = chunk.tostring(byteorder)
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", 'application/octet-stream')
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.copyfile(io.BytesIO(data), self.wfile)
+            self.send_chunk(chunk)
         elif args.format == FORMAT_ZARR:
             import zarr
             level, path = self.path[1:].split('/')
             if not os.path.exists(level):
                 super(RequestHandler, self).do_GET()
                 return
-            xstr, ystr, zstr = path.split('_')
-            x0, x1 = [int(x) for x in xstr.split('-')]
-            y0, y1 = [int(y) for y in ystr.split('-')]
-            z0, z1 = [int(z) for z in zstr.split('-')]
+            x0, y0, z0 = self.parse_path(path)
             store = zarr.NestedDirectoryStore(level)
             z_arr = zarr.open(store, mode='r')
             chunk = z_arr[z0:z1, y0:y1, x0:x1]
-            byteorder = "C"
-            data = chunk.tostring(byteorder)
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", 'application/octet-stream')
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.copyfile(io.BytesIO(data), self.wfile)
+            self.send_chunk(chunk)
         elif args.format == FORMAT_BLOCKFS:
             level, path = self.path[1:].split('/')
             if not os.path.exists(level):
                 super(RequestHandler, self).do_GET()
                 return
-            xstr, ystr, zstr = path.split('_')
-            x0, x1 = [int(x) for x in xstr.split('-')]
-            y0, y1 = [int(y) for y in ystr.split('-')]
-            z0, z1 = [int(z) for z in zstr.split('-')]
+            x0, y0, z0 = self.parse_path(path)
             directory = Directory.open(
                 os.path.join(level, "precomputed.blockfs"))
             chunk = directory.read_block(x0, y0, z0)
-            byteorder = "C"
-            data = chunk.tostring(byteorder)
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", 'application/octet-stream')
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.copyfile(io.BytesIO(data), self.wfile)
+            self.send_chunk(chunk)
+        elif args.format == FORMAT_NGFF:
+            import zarr
+            level, path = self.path[1:].split('/')
+            x0, y0, z0 = self.parse_path(path)
+            store = zarr.NestedDirectoryStore(".")
+            group = zarr.group(store)
+            lx, ly, lz = [int(_) for _ in level.split("_")]
+            llevel = int(np.round(np.log2(lx), 0))
+            a = group[llevel]
+            _, _, zs, ys, xs = a.chunks
+            z1 = min(a.shape[2], z0 + zs)
+            y1 = min(a.shape[3], y0 + zs)
+            x1 = min(a.shape[4], x0 + xs)
+            chunk = a[0, 0, z0:z1, y0:y1, x0:x1]
+            self.send_chunk(chunk)
         else:
             raise ValueError('Invalid format specified')
+
+    def send_chunk(self, chunk):
+        byteorder = "C"
+        data = chunk.tostring(byteorder)
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-type", 'application/octet-stream')
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.copyfile(io.BytesIO(data), self.wfile)
+
+    def parse_path(self, path):
+        xstr, ystr, zstr = path.split('_')
+        x0, x1 = [int(x) for x in xstr.split('-')]
+        y0, y1 = [int(y) for y in ystr.split('-')]
+        z0, z1 = [int(z) for z in zstr.split('-')]
+        return x0, y0, z0
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')

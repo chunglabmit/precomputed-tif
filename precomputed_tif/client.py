@@ -11,6 +11,8 @@ import os
 import tifffile
 import time
 
+import zarr
+
 __cache = {}
 
 class Scale:
@@ -181,6 +183,24 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
                     unquote(directory_parse.path))
                 directory = Directory.open(directory_path)
                 chunk = directory.read_block(x0c, y0c, z0c)
+            elif format == 'ngff':
+                ngff_parse = urlparse(url)
+                ngff_path = os.path.join(ngff_parse.netloc,
+                                         unquote(ngff_parse.path))
+                key = str(int(np.log2(level)))
+                storage = zarr.NestedDirectoryStore(ngff_path)
+                group = zarr.group(storage)
+                dataset = group[key]
+                dataset.read_only = True
+                chunk = dataset[0, 0, z0c:z1c, y0c:y1c, x0c:x1c]
+            elif format == 'zarr':
+                zarr_url = url + "/" + scale.key
+                zarr_parse = urlparse(zarr_url)
+                zarr_path = os.path.join(zarr_parse.netloc,
+                                         unquote(zarr_parse.path))
+                storage = zarr.NestedDirectoryStore(zarr_path)
+                dataset = zarr.Array(storage)
+                chunk = dataset[z0c:z1c, y0c:y1c, x0c:x1c]
             else:
                 raise NotImplementedError("Can't read %s yet" % format)
         else:
@@ -212,44 +232,27 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
     return result
 
 
-class ArrayReader:
-    def __init__(self, url, format='tiff', level=1):
-        """
-        Initialize the reader with the precomputed data source URL
-        :param url: URL of the data source
-        :param format: either 'tiff', 'blockfs' or 'zarr'
-        :param level: the mipmap level
-        """
-        self.url = url
-        self.format = format
-        self.level = level
-        self.info = get_info(url)
-        self.scale = self.info.get_scale(level)
-
+class ArrayReaderBase:
     def __len__(self):
-        return self.scale.shape[-1]
+        return self.shape[0]
 
     @property
     def shape(self):
-        return self.scale.shape[::-1]
-
-    @property
-    def dtype(self):
-        return self.info.data_type
+        raise NotImplementedError("Implement shape in your class")
 
     def __getitem__(self, key):
         def s(idx, axis):
             if idx is None:
                 return 0
             if idx < 0:
-                return self.scale.shape[2-axis] + idx
+                return self.shape[axis] + idx
             return idx
 
         def e(idx, axis):
             if idx is None:
-                return self.scale.shape[2-axis]
+                return self.shape[axis]
             if idx < 0:
-                return self.scale.shape[2 - axis] + idx
+                return self.shape[axis] + idx
             return idx
 
         assert len(key) == 3, "Please specify 3 axes when indexing"
@@ -283,8 +286,7 @@ class ArrayReader:
             x1 = x0 + 1
             xsquish=True
             xs = 1
-        block = read_chunk(self.url, x0, x1, y0, y1, z0, z1,
-                           self.level, self.format)[::zs, ::ys, ::xs]
+        block = self.read_chunk(x0, x1, y0, y1, z0, z1)[::zs, ::ys, ::xs]
         if xsquish:
             block = block[:, :, 0]
         if ysquish:
@@ -292,6 +294,182 @@ class ArrayReader:
         if zsquish:
             block = block[0]
         return block
+
+    def read_chunk(self, x0, x1, y0, y1, z0, z1):
+        raise NotImplementedError("Implement read_chunk in your class")
+
+
+class ArrayReader(ArrayReaderBase):
+    def __init__(self, url, format='tiff', level=1):
+        """
+        Initialize the reader with the precomputed data source URL
+        :param url: URL of the data source
+        :param format: either 'tiff', 'blockfs' or 'zarr'
+        :param level: the mipmap level
+        """
+        self.url = url
+        self.format = format
+        self.level = level
+        self.info = get_info(url)
+        self.scale = self.info.get_scale(level)
+
+    @property
+    def shape(self):
+        return self.scale.shape[::-1]
+
+    @property
+    def dtype(self):
+        return self.info.data_type
+
+    def read_chunk(self, x0, x1, y0, y1, z0, z1):
+        return read_chunk(self.url, x0, x1, y0, y1, z0, z1,
+                          self.level, self.format)
+
+
+
+class DANDIArrayReader(ArrayReaderBase):
+
+    def __init__(self, urls, level=1):
+        self.level = level
+        self.urls = urls
+        self.array_readers = [ArrayReader(url, format='ngff', level=level)
+                              for url in urls]
+        self.offsets = []
+        for url in self.urls:
+            # Name is something like foo_spim.ngff
+            xform_url = url[:-9] + "transforms.json"
+            with urlopen(xform_url) as fd:
+                xform = json.load(fd)
+            self.offsets.append(
+                tuple(int(xform[0]["TransformationParameters"][_]) // level
+                      for _ in ("ZOffset", "YOffset", "XOffset")))
+
+    def x0(self, idx):
+        return self.offsets[idx][2]
+
+    def x1(self, idx):
+        return self.x0(idx) + self.array_readers[idx].shape[2]
+
+    def y0(self, idx):
+        return self.offsets[idx][1]
+
+    def y1(self, idx):
+        return self.y0(idx) + self.array_readers[idx].shape[1]
+
+    def z0(self, idx):
+        return self.offsets[idx][0]
+
+    def z1(self, idx):
+        return self.z0(idx) + self.array_readers[idx].shape[0]
+
+    @property
+    def shape(self):
+        return tuple(np.max([fn(_) for _ in range(len(self.urls))])
+                     for fn in (self.z1, self.y1, self.x1))
+
+    @property
+    def dtype(self):
+        return self.array_readers[0].dtype
+
+
+    def get(self,
+            idx:int,
+            x0:int, x1:int, y0:int, y1:int, z0:int, z1:int):
+        """
+        Get a data range from a chunk.
+        :param idx: the index of the chunk in question
+        :param x0: The start x in global coordinates
+        :param x1: The end x in global coordinates
+        :param y0: The start y in global coordinates
+        :param y1: The end y in global coordinates
+        :param z0: The start z in global coordinates
+        :param z1: The end z in global coordinates
+        :return: a two-tuple of an array containing the data read and
+                 an array similarly sized to data, giving the manhattan
+                 distance to the nearest edge.
+        """
+        data = np.zeros((z1-z0, y1-y0, x1-x0), self.dtype)
+        ar = self.array_readers[idx]
+        x0c = self.x0(idx)
+        y0c = self.y0(idx)
+        z0c = self.z0(idx)
+        x1c = self.x1(idx)
+        y1c = self.y1(idx)
+        z1c = self.z1(idx)
+        if x0c >= x1 or x0 >= x1c or \
+           y0c >= y1 or y0 >= y1c or \
+           z0c >= z1 or z0 >= z1c:
+           return
+
+        x0a = max(x0c, x0)
+        x1a = min(x1c, x1)
+        y0a = max(y0c, y0)
+        y1a = min(y1c, y1)
+        z0a = max(z0c, z0)
+        z1a = min(z1c, z1)
+        chunk = ar[z0a-z0c:z1a-z0c, y0a-y0c:y1a-y0c, x0a-x0c:x1a - x0c]
+        data[z0a-z0:z1a-z0, y0a-y0:y1a-y0, x0a-x0:x1a-x0] += chunk
+        nx = np.arange(x0-x0c, x1-x0c)
+        fx = np.arange(x1c-x0-1, x1c-x1-1, -1)
+        ny = np.arange(y0-y0c, y1-y0c)
+        fy = np.arange(y1c-y0-1, y1c-y1-1, -1)
+        nz = np.arange(z0-z0c, z1-z0c)
+        fz = np.arange(z1c-z0-1, z1c-z1-1, -1)
+        xd = np.minimum(nx.reshape(1, 1, -1), fx.reshape(1, 1, -1))
+        yd = np.minimum(ny.reshape(1, -1, 1), fy.reshape(1, -1, 1))
+        zd = np.minimum(nz.reshape(-1, 1, 1), fz.reshape(-1, 1, 1))
+        return data, np.minimum(xd, np.minimum(yd, zd))
+
+
+    def read_chunk(self, x0, x1, y0, y1, z0, z1):
+        datas = []
+        distances = []
+        #
+        # We do cosine blending between the two pixels furthest away
+        # from their edges. The furthest from the edge is "a" and the
+        # second-furthest is "b"
+        #
+        a = np.zeros((z1-z0, y1-y0, x1-x0), np.uint8)
+        ad = -np.ones_like(a, dtype=np.int32)
+        b = np.zeros_like(a)
+        bd = -np.ones_like(a, dtype=np.int32)
+        i = 0
+        for idx in range(len(self.urls)):
+            result = self.get(idx, x0, x1, y0, y1, z0, z1)
+            if result is None:
+                continue
+            data, distance = result
+            datas.append(data)
+            distances.append(distance)
+            a_mask = distance >= np.maximum(0, ad)
+            b[a_mask]  = a[a_mask]
+            bd[a_mask] = ad[a_mask]
+            a[a_mask] = i
+            ad[a_mask] = distance[a_mask]
+            b_mask = (~ a_mask) & (distance >= np.maximum(0, bd))
+            b[b_mask] = i
+            bd[b_mask] = distance[b_mask]
+            i += 1
+        if i == 0:
+            return np.zeros((z1-z0, y1-y0, x1-x0), self.dtype)
+        datas = np.stack(datas)
+        distances = np.stack(distances)
+        double_z, double_y, double_x = np.where(bd >= 0)
+        single_z, single_y, single_x = np.where((ad >= 0) & (bd < 0))
+        result = np.zeros_like(a, dtype=self.dtype)
+        result[single_z, single_y, single_x] = \
+            datas[a[single_z, single_y, single_x], single_z, single_y, single_x]
+        if len(double_z) > 0:
+            a_idx = a[double_z, double_y, double_x]
+            distances_a = distances[a_idx, double_z, double_y, double_x]
+            b_idx = b[double_z, double_y, double_x]
+            distances_b = distances[b_idx, double_z, double_y, double_x]
+            datas_a = datas[a_idx, double_z, double_y, double_x]
+            datas_b = datas[b_idx, double_z, double_y, double_x]
+            angle = np.arctan2(distances_a, distances_b)
+            result[double_z, double_y, double_x] = \
+                np.sin(angle) ** 2 * datas_a + np.cos(angle) ** 2 * datas_b
+        return result
 
 
 if __name__ == "__main__":

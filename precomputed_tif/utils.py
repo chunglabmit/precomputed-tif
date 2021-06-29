@@ -8,7 +8,7 @@ from .stack import Stack
 
 
 @contextlib.contextmanager
-def make_case(dtype, shape, return_path=False, klass=Stack):
+def make_case(dtype, shape, return_path=False, klass=Stack, destname="dest"):
     """Make a test case
 
     :param dtype: the dtype of the volume, e.g. np.uint16
@@ -24,7 +24,7 @@ def make_case(dtype, shape, return_path=False, klass=Stack):
     tempdir = tempfile.mkdtemp()
     src = os.path.join(tempdir, "src")
     os.mkdir(src)
-    dest = os.path.join(tempdir, "dest")
+    dest = os.path.join(tempdir, destname)
     os.mkdir(dest)
     try:
         for z in range(shape[0]):
