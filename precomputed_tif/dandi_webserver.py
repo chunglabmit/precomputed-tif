@@ -33,6 +33,7 @@ def application(environ, start_response):
 
 import json
 import urllib
+from urllib.parse import quote
 
 from .client import DANDIArrayReader
 
@@ -42,11 +43,59 @@ def file_not_found(dest, start_response):
                    [("Content-type", "text/html")])
     return [("<html><body>%s not found</body></html>" % dest).encode("utf-8")]
 
+shader_template = """
+void main() {
+    float x = clamp(toNormalized(getDataValue()) * %f, 0.0, 1.0);
+    float angle = 2.0 * 3.1415926 * (4.0 / 3.0 + x);
+    float amp = x * (1.0 - x) / 2.0;
+    vec3 result;
+    float cosangle = cos(angle);
+    float sinangle = sin(angle);
+    result.r = -0.14861 * cosangle + 1.78277 * sinangle;
+    result.g = -0.29227 * cosangle + -0.90649 * sinangle;
+    result.b = 1.97294 * cosangle;
+    result = clamp(x + amp * result, 0.0, 1.0);
+    emitRGB(result);
+}
+"""
+
+
+def list_one(key):
+    layer = dict(
+        source="precomputed://https://leviathan-chunglab.mit.edu/dandi/%s" % key,
+        type="image",
+        shader=shader_template % 40,
+        name=key
+        )
+    ng_str = json.dumps(dict(layers=[layer]))
+    url = "https://leviathan-chunglab.mit.edu/neuroglancer#!%s" % quote(ng_str)
+
+    return '<li><a href="%s">%s</a></li>' % (url, key)
+
+
+def neuroglancer_listing(start_response, config):
+    result = "<html><body><ul>\n"
+    def sort_fn(d):
+        return d["name"]
+    for d in sorted(config, key=sort_fn):
+        result += list_one(d["name"]) + "\n"
+    result += "</ul></body></html>"
+    data = result.encode("ascii")
+    start_response(
+        "200 OK",
+        [("Content-type", "text/html"),
+         ("Content-Length", str(len(data))),
+         ('Access-Control-Allow-Origin', '*')])
+
+    return [data]
+
 
 def serve_precomputed(environ, start_response, config_file):
     with open(config_file) as fd:
         config = json.load(fd)
     path_info = environ["PATH_INFO"]
+    if path_info == "/":
+        return neuroglancer_listing(start_response, config)
     for source in config:
         if path_info[1:].startswith(source["name"]+"/"):
             filename = path_info[2+len(source["name"]):]
