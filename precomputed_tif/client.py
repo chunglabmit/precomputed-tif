@@ -329,6 +329,7 @@ class ArrayReader(ArrayReaderBase):
 
 class DANDIArrayReader(ArrayReaderBase):
 
+    CHUNK_TRANSFORM_MATRIX_KWD = "ChunkTransformMatrix"
     def __init__(self, urls, level=1):
         self.level = level
         self.urls = urls
@@ -337,12 +338,25 @@ class DANDIArrayReader(ArrayReaderBase):
         self.offsets = []
         for url in self.urls:
             # Name is something like foo_spim.ngff
-            xform_url = url[:-9] + "transforms.json"
-            with urlopen(xform_url) as fd:
-                xform = json.load(fd)
-            self.offsets.append(
-                tuple(int(xform[0]["TransformationParameters"][_]) // level
-                      for _ in ("ZOffset", "YOffset", "XOffset")))
+            #
+            # Modern form is to extract offsets from affine transform
+            # stored in the metadata sidecar
+            #
+            sidecar_url = url[:-4] + "json"
+            with urlopen(sidecar_url) as fd:
+                sidecar = json.load(fd)
+            if self.CHUNK_TRANSFORM_MATRIX_KWD in sidecar:
+                matrix = sidecar[self.CHUNK_TRANSFORM_MATRIX_KWD]
+                self.offsets.append((matrix[0, -1],
+                                     matrix[1, -1],
+                                     matrix[2, -1]))
+            else:
+                xform_url = url[:-9] + "transforms.json"
+                with urlopen(xform_url) as fd:
+                    xform = json.load(fd)
+                self.offsets.append(
+                    tuple(int(xform[0]["TransformationParameters"][_]) // level
+                          for _ in ("ZOffset", "YOffset", "XOffset")))
 
     def x0(self, idx):
         return self.offsets[idx][2]
