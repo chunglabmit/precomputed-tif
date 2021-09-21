@@ -347,9 +347,9 @@ class DANDIArrayReader(ArrayReaderBase):
                 sidecar = json.load(fd)
             if self.CHUNK_TRANSFORM_MATRIX_KWD in sidecar:
                 matrix = sidecar[self.CHUNK_TRANSFORM_MATRIX_KWD]
-                self.offsets.append((matrix[0, -1],
-                                     matrix[1, -1],
-                                     matrix[2, -1]))
+                self.offsets.append((matrix[0][-1],
+                                     matrix[1][-1],
+                                     matrix[2][-1]))
             else:
                 xform_url = url[:-9] + "transforms.json"
                 with urlopen(xform_url) as fd:
