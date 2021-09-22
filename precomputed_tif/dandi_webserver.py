@@ -149,19 +149,31 @@ def parse_filename(filename):
 
 
 if __name__ == "__main__":
+    import argparse
     from wsgiref.simple_server import make_server
     import sys
 
-    config_filename = sys.argv[1]
-    if len(sys.argv) > 2:
-        port = int(sys.argv[2])
-    else:
-        port = 8080
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "config_filename",
+        help="File with the DANDI sources"
+    )
+    parser.add_argument(
+        "--ip-address",
+        help="IP address or dns name of interface to bind to",
+        default="127.0.0.1"
+    )
+    parser.add_argument(
+        "--port",
+        help="Port to bind to",
+        default = 8000,
+        type=int
+    )
+    opts = parser.parse_args(sys.argv[1:])
 
     def application(environ, start_response):
-        return serve_precomputed(environ, start_response, config_filename)
+        return serve_precomputed(environ, start_response, opts.config_filename)
 
 
-    httpd = make_server("127.0.0.1", port, application)
+    httpd = make_server(opts.ip_address, opts.port, application)
     httpd.serve_forever()

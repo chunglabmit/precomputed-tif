@@ -213,8 +213,17 @@ def make_bids_transform(xoff, yoff, zoff):
             }
         )]
 
+def make_sidecar(xoff, yoff, zoff):
+    return dict(ChunkTransformMatrix=[
+        [1.0, 0., 0., zoff],
+        [0., 1.0, 0., yoff],
+        [0., 0., 1.0, xoff],
+        [0., 0., 0., 1.0]
+    ],
+    ChunkTransformMatrixAxis = ["Z", "Y", "X"])
+
 @contextlib.contextmanager
-def make_dandi_case(y_offset):
+def make_dandi_case(y_offset, old=True):
     with make_case(np.uint16, (100, 200, 300),
                    klass=NGFFStack,
                    destname="chunk1_spim.ngff") as (stack1, volume1):
@@ -231,12 +240,24 @@ def make_dandi_case(y_offset):
             url1 = dest1.as_uri()
             dest2 = pathlib.Path(stack2.dest)
             url2 = dest2.as_uri()
-            xform_path1 = dest1.parent / (dest1.stem[:-4] + "transforms.json")
-            xform_path2 = dest2.parent / (dest2.stem[:-4] + "transforms.json")
-            with xform_path1.open("w") as fd:
-                json.dump(make_bids_transform(0, 0, 0), fd, indent=2)
-            with xform_path2.open("w") as fd:
-                json.dump(make_bids_transform(0, y_offset, 0), fd, indent=2)
+            sidecar_path1 = dest1.parent / (dest1.stem + ".json")
+            sidecar_path2 = dest2.parent / (dest2.stem + ".json")
+            if old:
+                xform_path1 = dest1.parent / (dest1.stem[:-4] + "transforms.json")
+                xform_path2 = dest2.parent / (dest2.stem[:-4] + "transforms.json")
+                with xform_path1.open("w") as fd:
+                    json.dump(make_bids_transform(0, 0, 0), fd, indent=2)
+                with xform_path2.open("w") as fd:
+                    json.dump(make_bids_transform(0, y_offset, 0), fd, indent=2)
+                with sidecar_path1.open("w") as fd:
+                    json.dump({}, fd)
+                with sidecar_path2.open("w") as fd:
+                    json.dump({}, fd)
+            else:
+                with sidecar_path1.open("w") as fd:
+                    json.dump(make_sidecar(0, 0, 0), fd)
+                with sidecar_path2.open("w") as fd:
+                    json.dump(make_sidecar(0, y_offset, 0), fd)
             yield (url1, volume1), (url2, volume2)
 
 
@@ -252,6 +273,16 @@ class TestDandi(unittest.TestCase):
 
     def test_double(self):
         with make_dandi_case(100) as ((url1, volume1), (url2, volume2)):
+            ar = DANDIArrayReader([url1, url2])
+            middle = ar[:10, 100:200, :10]
+            bottom = volume1[:10, 100:, :10]
+            top = volume2[:10, :100, :10]
+            minval = np.minimum(bottom, top)
+            maxval = np.maximum(bottom, top)
+            self.assertTrue(np.all((middle >= minval) & (middle <= maxval)))
+
+    def test_sidecar(self):
+        with make_dandi_case(100, True) as ((url1, volume1), (url2, volume2)):
             ar = DANDIArrayReader([url1, url2])
             middle = ar[:10, 100:200, :10]
             bottom = volume1[:10, 100:, :10]
