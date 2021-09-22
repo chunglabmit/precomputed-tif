@@ -241,7 +241,7 @@ def make_dandi_case(y_offset, old=True):
             dest2 = pathlib.Path(stack2.dest)
             url2 = dest2.as_uri()
             sidecar_path1 = dest1.parent / (dest1.stem + ".json")
-            sidecar_path2 = dest1.parent / (dest2.stem + ".json")
+            sidecar_path2 = dest2.parent / (dest2.stem + ".json")
             if old:
                 xform_path1 = dest1.parent / (dest1.stem[:-4] + "transforms.json")
                 xform_path2 = dest2.parent / (dest2.stem[:-4] + "transforms.json")
