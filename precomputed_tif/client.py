@@ -330,6 +330,9 @@ class ArrayReader(ArrayReaderBase):
 class DANDIArrayReader(ArrayReaderBase):
 
     CHUNK_TRANSFORM_MATRIX_KWD = "ChunkTransformMatrix"
+    CHUNK_TRANSFORM_MATRIX_AXIS_KWD = "ChunkTransformMatrixAxis"
+    PIXEL_SIZE_KWD = "PixelSize"
+
     def __init__(self, urls, level=1):
         self.level = level
         self.urls = urls
@@ -347,9 +350,17 @@ class DANDIArrayReader(ArrayReaderBase):
                 sidecar = json.load(fd)
             if self.CHUNK_TRANSFORM_MATRIX_KWD in sidecar:
                 matrix = sidecar[self.CHUNK_TRANSFORM_MATRIX_KWD]
-                self.offsets.append((int(matrix[0][-1] // level),
-                                     int(matrix[1][-1] // level),
-                                     int(matrix[2][-1] // level)))
+                axis = sidecar[self.CHUNK_TRANSFORM_MATRIX_AXIS_KWD]
+                pixel_size = sidecar[self.PIXEL_SIZE_KWD]
+                x_idx, y_idx, z_idx = [axis.index(_) for _ in ("X", "Y", "Z")]
+                xum, yum, zum = \
+                    [pixel_size[idx] for idx in (x_idx, y_idx, z_idx)]
+                xoff, yoff, zoff = \
+                    [int(matrix[idx][-1] / um / level)
+                     for idx, um in ((x_idx, xum),
+                                     (y_idx, yum),
+                                     (z_idx, zum))]
+                self.offsets.append((zoff, yoff, xoff))
             else:
                 xform_url = url[:-9] + "transforms.json"
                 with urlopen(xform_url) as fd:

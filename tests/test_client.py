@@ -214,13 +214,15 @@ def make_bids_transform(xoff, yoff, zoff):
         )]
 
 def make_sidecar(xoff, yoff, zoff):
-    return dict(ChunkTransformMatrix=[
-        [1.0, 0., 0., zoff],
+    return dict(
+        PixelSize=[1.0, 1.0, 1.0],
+        ChunkTransformMatrix=[
+        [1.0, 0., 0., xoff],
         [0., 1.0, 0., yoff],
-        [0., 0., 1.0, xoff],
+        [0., 0., 1.0, zoff],
         [0., 0., 0., 1.0]
     ],
-    ChunkTransformMatrixAxis = ["Z", "Y", "X"])
+    ChunkTransformMatrixAxis = ["X", "Y", "Z"])
 
 @contextlib.contextmanager
 def make_dandi_case(y_offset, old=True):
