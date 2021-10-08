@@ -38,6 +38,10 @@ from urllib.parse import quote
 from .client import DANDIArrayReader
 
 
+class ParseFileException(BaseException):
+    pass
+
+
 def file_not_found(dest, start_response):
     start_response("404 Not found",
                    [("Content-type", "text/html")])
@@ -103,8 +107,11 @@ def serve_precomputed(environ, start_response, config_file):
             if filename == "info":
                 return serve_info(environ, start_response, urls)
             else:
-                level, x0, x1, y0, y1, z0, z1 = \
-                    parse_filename(filename)
+                try:
+                    level, x0, x1, y0, y1, z0, z1 = \
+                        parse_filename(filename)
+                except ParseFileException:
+                    return file_not_found(path_info, start_response)
                 ar = DANDIArrayReader(urls, level=level)
                 img = ar[z0:z1, y0:y1, x0:x1]
                 data = img.tostring("C")
@@ -139,12 +146,15 @@ def serve_info(environ, start_response, urls):
 
 
 def parse_filename(filename):
-    level, path = filename.split("/")
-    level = int(level.split("_")[0])
-    xstr, ystr, zstr = path.split("_")
-    x0, x1 = [int(x) for x in xstr.split('-')]
-    y0, y1 = [int(y) for y in ystr.split('-')]
-    z0, z1 = [int(z) for z in zstr.split('-')]
+    try:
+        level, path = filename.split("/")
+        level = int(level.split("_")[0])
+        xstr, ystr, zstr = path.split("_")
+        x0, x1 = [int(x) for x in xstr.split('-')]
+        y0, y1 = [int(y) for y in ystr.split('-')]
+        z0, z1 = [int(z) for z in zstr.split('-')]
+    except ValueError:
+        raise ParseFileException()
     return level, x0, x1, y0, y1, z0, z1
 
 
