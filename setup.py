@@ -27,7 +27,8 @@ setup(
     entry_points={ 'console_scripts': [
         'precomputed-tif=precomputed_tif.main:main',
         'precomputed-webserver=precomputed_tif.cors_webserver:main',
-        'precomputed-save=precomputed_tif.save:main'
+        'precomputed-save=precomputed_tif.save:main',
+        'precomputed-write-points=precomputed_tif.write_points:main'
     ]},
     url="https://github.com/chunglabmit/precomputed-tif",
     license="MIT",

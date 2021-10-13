@@ -52,6 +52,39 @@ resolution as the previous level.
                  processing.
 * **log** is the logging level, one of "DEBUG", "INFO", "WARNING" or "ERROR".
 
+### precomputed-write-points
+
+**precomputed-write-points** writes a json-encoded set of points in x, y, z
+format out to the precomputed neuroglancer format for points display. Note:
+for Leviathan, if you use an output directory of 
+"/mnt/beegfs/neuroglancer/points/*name*", Leviathan will serve it at the
+url, "precomputed://https://leviathan-chunglab.mit.edu/points/*name*".
+
+Usage:
+
+precomputed-write-points \
+  --input <points-file> \
+  --output-directory <output-directory> \
+  [--voxel-size <voxel-size>] \
+  [--lower-bound <lower-bound>] \
+  [--upper-bound <upper-bound>] \
+  [--no-by-id]
+
+where:
+* **points-file** is the points .json file
+* **output-directory** is the base directory for storing the neuroglancer
+annotations
+* **voxel-size** is the size of a voxel in microns, expressed as "x,y,z"
+The default is 1.8,1.8.2.0
+* **lower-bound** is the lower bound of the annotation volume in voxels,
+expressed as "x,y,z". The default is 0,0,0
+* **upper-bound** is the upper bound of the annotation volume in voxels,
+expressed as "x,y,z". The default is the maximum value per coordinate in
+the points file
+* **--no-by-id** - providing this flag will prevent writing the by-id
+annotations. These are one annotation per file and, if there are a large
+number of points, there will be too many of them for a file-system.
+
 ### cors-webserver
 
 The **precomputed-webserver** serves the precomputed TIF files as a
