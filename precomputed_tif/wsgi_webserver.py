@@ -36,7 +36,8 @@ import numpy as np
 
 def file_not_found(dest, start_response):
     start_response("404 Not found",
-                   [("Content-type", "text/html")])
+                   [("Content-type", "text/html"),
+                    ('Access-Control-Allow-Origin', '*')])
     return [("<html><body>%s not found</body></html>" % dest).encode("utf-8")]
 
 
