@@ -16,15 +16,17 @@ file containing a list of sources to serve. Each source should have a
    }
 ]
 
-Create a Python file for to serve via wsgi, e.g.
+Create a Python file for to serve via wsgi, e.g. my_wsgi.py
 
 from precomputed_tif.wsgi_webserver import serve_precomputed
 
 CONFIG_FILE = "/etc/precomputed.config"
 
 def application(environ, start_response):
-    return serve_precomputed(environ, start_response, config_file)
+    return serve_precomputed(environ, start_response, CONFIG_FILE)
 
+Serve it, e.g. using gunicorn
+gunicorn my_wsgi:application
 """
 
 import json
