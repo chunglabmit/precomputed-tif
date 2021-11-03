@@ -50,8 +50,9 @@ def file_not_found(dest, start_response):
     return [("<html><body>%s not found</body></html>" % dest).encode("utf-8")]
 
 shader_template = """
+#uicontrol float brightness slider(min=0.0, max=100.0, default=%f)
 void main() {
-    float x = clamp(toNormalized(getDataValue()) * %f, 0.0, 1.0);
+    float x = clamp(toNormalized(getDataValue()) * brightness, 0.0, 1.0);
     float angle = 2.0 * 3.1415926 * (4.0 / 3.0 + x);
     float amp = x * (1.0 - x) / 2.0;
     vec3 result;
@@ -74,7 +75,7 @@ def list_one(key):
         name=key
         )
     ng_str = json.dumps(dict(layers=[layer]))
-    url = "https://leviathan-chunglab.mit.edu/neuroglancer#!%s" % quote(ng_str)
+    url = "https://leviathan-chunglab.mit.edu/neuroglancer-2#!%s" % quote(ng_str)
 
     return '<li><a href="%s">%s</a></li>' % (url, key)
 
