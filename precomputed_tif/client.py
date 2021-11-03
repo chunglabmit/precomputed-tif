@@ -404,7 +404,7 @@ class DANDIArrayReader(ArrayReaderBase):
         for level in levels:
             scales.append(
                 dict(
-                    chunk_sizes=[64, 64, 64],
+                    chunk_sizes=[[64, 64, 64]],
                     encoding="raw",
                     key="_".join([str(level)] * 3),
                     resolution=

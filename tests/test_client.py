@@ -323,7 +323,7 @@ class TestDandi(unittest.TestCase):
                 self.assertSequenceEqual(scale["size"], expected_sizes)
                 self.assertEqual(scale["key"], f"{level}_{level}_{level}")
                 self.assertEqual(scale["encoding"], "raw")
-                self.assertSequenceEqual(scale["chunk_sizes"], (64, 64, 64))
+                self.assertSequenceEqual(scale["chunk_sizes"][0], (64, 64, 64))
                 self.assertSequenceEqual(scale["voxel_offset"], (0, 0, 0))
 
 if __name__ == '__main__':
