@@ -407,10 +407,11 @@ class DANDIArrayReader(ArrayReaderBase):
                     chunk_sizes=[64, 64, 64],
                     encoding="raw",
                     key="_".join([str(level)] * 3),
-                    resolution=[_ * level * 1000 for _ in (xum, yum, zum)],
-                    size=[x_extent // level,
-                          y_extent // level,
-                          z_extent // level],
+                    resolution=
+                    [float(_ * level * 1000) for _ in (xum, yum, zum)],
+                    size=[int(x_extent // level),
+                          int(y_extent // level),
+                          int(z_extent // level)],
                     voxel_offset=[0, 0, 0]
                 )
             )

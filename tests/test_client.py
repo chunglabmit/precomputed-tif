@@ -305,6 +305,10 @@ class TestDandi(unittest.TestCase):
                 ((url1, volume1), (url2, volume2)):
             ar = DANDIArrayReader([url1, url2])
             info = ar.get_info()
+            #
+            # Make sure it's json-serializable
+            #
+            json.dumps(info)
             self.assertEqual(info["data_type"], "uint16")
             self.assertEqual(info["mesh"], "mesh")
             self.assertEqual(info["num_channels"], 1)
