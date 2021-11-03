@@ -184,12 +184,8 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
                 directory = Directory.open(directory_path)
                 chunk = directory.read_block(x0c, y0c, z0c)
             elif format == 'ngff':
-                ngff_parse = urlparse(url)
-                ngff_path = os.path.join(ngff_parse.netloc,
-                                         unquote(ngff_parse.path))
+                group = get_ngff_group_from_url(url)
                 key = str(int(np.log2(level)))
-                storage = zarr.NestedDirectoryStore(ngff_path)
-                group = zarr.group(storage)
                 dataset = group[key]
                 dataset.read_only = True
                 chunk = dataset[0, 0, z0c:z1c, y0c:y1c, x0c:x1c]
@@ -230,6 +226,17 @@ def read_chunk(url, x0, x1, y0, y1, z0, z1, level=1, format="tiff"):
                y0c - y0:y0c - y0 + chunk.shape[1],
                x0c - x0:x0c - x0 + chunk.shape[2]] = chunk
     return result
+
+
+def get_ngff_group_from_url(url:str) -> zarr.Group:
+    """Open the Zarr group from a NGFF file url
+    """
+    ngff_parse = urlparse(url)
+    ngff_path = os.path.join(ngff_parse.netloc,
+                             unquote(ngff_parse.path))
+    storage = zarr.NestedDirectoryStore(ngff_path)
+    group = zarr.group(storage)
+    return group
 
 
 class ArrayReaderBase:
@@ -345,9 +352,7 @@ class DANDIArrayReader(ArrayReaderBase):
             # Modern form is to extract offsets from affine transform
             # stored in the metadata sidecar
             #
-            sidecar_url = url[:-4] + "json"
-            with urlopen(sidecar_url) as fd:
-                sidecar = json.load(fd)
+            sidecar = self.load_sidecar(url)
             if self.CHUNK_TRANSFORM_MATRIX_KWD in sidecar:
                 matrix = sidecar[self.CHUNK_TRANSFORM_MATRIX_KWD]
                 axis = sidecar[self.CHUNK_TRANSFORM_MATRIX_AXIS_KWD]
@@ -369,6 +374,49 @@ class DANDIArrayReader(ArrayReaderBase):
                     tuple(int(xform[0]["TransformationParameters"][_]) // level
                           for _ in ("ZOffset", "YOffset", "XOffset")))
 
+    def load_sidecar(self, url):
+        sidecar_url = url[:-4] + "json"
+        with urlopen(sidecar_url) as fd:
+            sidecar = json.load(fd)
+        return sidecar
+
+    def get_info(self):
+        sidecar = self.load_sidecar(self.urls[0])
+        ctma = sidecar["ChunkTransformMatrixAxis"]
+        idx_x, idx_y, idx_z = [ctma.index(_) for _ in "XYZ"]
+        xum, yum, zum = [sidecar["PixelSize"][idx]
+                         for idx in (idx_x, idx_y, idx_z)]
+        z_extent, y_extent, x_extent = self.shape
+        #
+        # Get the mipmap levels from the NGFF metadata
+        #
+        ngff_group = get_ngff_group_from_url(self.urls[0])
+        levels = [2 ** int(_["path"]) for _ in
+                ngff_group.attrs["multiscales"][0]["datasets"]]
+        scales = []
+        info = dict(
+            data_type="uint16",
+            mesh="mesh",
+            num_channels=1,
+            type="image",
+            scales=scales
+        )
+        for level in levels:
+            scales.append(
+                dict(
+                    chunk_sizes=[64, 64, 64],
+                    encoding="raw",
+                    key="_".join([str(level)] * 3),
+                    resolution=[_ * level * 1000 for _ in (xum, yum, zum)],
+                    size=[x_extent // level,
+                          y_extent // level,
+                          z_extent // level],
+                    voxel_offset=[0, 0, 0]
+                )
+            )
+        return info
+
+        
     def x0(self, idx):
         return self.offsets[idx][2]
 

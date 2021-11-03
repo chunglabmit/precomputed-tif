@@ -213,31 +213,38 @@ def make_bids_transform(xoff, yoff, zoff):
             }
         )]
 
-def make_sidecar(xoff, yoff, zoff):
+def make_sidecar(xoff, yoff, zoff, voxel_size):
     return dict(
-        PixelSize=[1.0, 1.0, 1.0],
+        PixelSize=voxel_size,
         ChunkTransformMatrix=[
-        [1.0, 0., 0., xoff],
-        [0., 1.0, 0., yoff],
-        [0., 0., 1.0, zoff],
+        [voxel_size[2], 0., 0., xoff],
+        [0., voxel_size[1], 0., yoff],
+        [0., 0., voxel_size[0], zoff],
         [0., 0., 0., 1.0]
     ],
     ChunkTransformMatrixAxis = ["X", "Y", "Z"])
 
 @contextlib.contextmanager
-def make_dandi_case(y_offset, old=True):
+def make_dandi_case(y_offset,
+                   old=True,
+                   voxel_size=[2.564, 3.625, 2.564],
+                   levels=1):
     with make_case(np.uint16, (100, 200, 300),
                    klass=NGFFStack,
                    destname="chunk1_spim.ngff") as (stack1, volume1):
         stack1.create()
-        stack1.write_info_file(1)
+        stack1.write_info_file(levels)
         stack1.write_level_1()
+        for level in range(2, levels + 1):
+            stack1.write_level_n(level)
         with make_case(np.uint16, (100, 200, 300),
                        klass=NGFFStack,
                        destname="chunk2_spim.ngff") as (stack2, volume2):
             stack2.create()
-            stack2.write_info_file(1)
+            stack2.write_info_file(levels)
             stack2.write_level_1()
+            for level in range(2, levels+1):
+                stack2.write_level_n(level)
             dest1 = pathlib.Path(stack1.dest)
             url1 = dest1.as_uri()
             dest2 = pathlib.Path(stack2.dest)
@@ -257,9 +264,9 @@ def make_dandi_case(y_offset, old=True):
                     json.dump({}, fd)
             else:
                 with sidecar_path1.open("w") as fd:
-                    json.dump(make_sidecar(0, 0, 0), fd)
+                    json.dump(make_sidecar(0, 0, 0, voxel_size), fd)
                 with sidecar_path2.open("w") as fd:
-                    json.dump(make_sidecar(0, y_offset, 0), fd)
+                    json.dump(make_sidecar(0, y_offset, 0, voxel_size), fd)
             yield (url1, volume1), (url2, volume2)
 
 
@@ -292,6 +299,28 @@ class TestDandi(unittest.TestCase):
             minval = np.minimum(bottom, top)
             maxval = np.maximum(bottom, top)
             self.assertTrue(np.all((middle >= minval) & (middle <= maxval)))
+
+    def test_info(self):
+        with make_dandi_case(100, old=False, levels=3) as \
+                ((url1, volume1), (url2, volume2)):
+            ar = DANDIArrayReader([url1, url2])
+            info = ar.get_info()
+            self.assertEqual(info["data_type"], "uint16")
+            self.assertEqual(info["mesh"], "mesh")
+            self.assertEqual(info["num_channels"], 1)
+            self.assertEqual(info["type"], "image")
+            self.assertEqual(len(info["scales"]), 3)
+            for scale, level in zip(info["scales"], (1, 2, 4)):
+                expected_voxel_size = \
+                    [_ * level * 1000 for _ in (2.564, 3.625, 2.564)]
+                self.assertSequenceEqual(scale["resolution"],
+                                         expected_voxel_size)
+                expected_sizes = [_ // level for _ in reversed(ar.shape)]
+                self.assertSequenceEqual(scale["size"], expected_sizes)
+                self.assertEqual(scale["key"], f"{level}_{level}_{level}")
+                self.assertEqual(scale["encoding"], "raw")
+                self.assertSequenceEqual(scale["chunk_sizes"], (64, 64, 64))
+                self.assertSequenceEqual(scale["voxel_offset"], (0, 0, 0))
 
 if __name__ == '__main__':
     unittest.main()

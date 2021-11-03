@@ -129,14 +129,7 @@ def serve_precomputed(environ, start_response, config_file):
 
 def serve_info(environ, start_response, urls):
     ar = DANDIArrayReader(urls, level=1)
-    info_url = urls[0] + "/info"
-    with urllib.request.urlopen(info_url) as fd:
-        info = json.load(fd)
-    for scale in info["scales"]:
-        xs, ys, zs = [int(_) for _ in scale["key"].split("_")]
-        scale["size"] = [int(ar.shape[2] // xs),
-                         int(ar.shape[1] // ys),
-                         int(ar.shape[0] // zs)]
+    info = ar.get_info()
     data = json.dumps(info, indent=2, ensure_ascii=True).encode("ascii")
 
     start_response(
