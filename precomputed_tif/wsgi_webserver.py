@@ -32,6 +32,11 @@ gunicorn my_wsgi:application
 import json
 import os
 import pathlib
+import logging
+
+import typing
+
+logging.basicConfig(level=logging.INFO)
 
 import numpy as np
 
@@ -47,10 +52,52 @@ class ParseFilenameError(BaseException):
     pass
 
 
-def serve_precomputed(environ, start_response, config_file):
-    with open(config_file) as fd:
+CONFIG_FILE_DICT = {}
+
+
+def get_config(config_file:str)->typing.Sequence[dict]:
+    path = pathlib.Path(config_file)
+    config, t = CONFIG_FILE_DICT.get(config_file, (None, 0))
+    mtime = path.lstat().st_mtime
+    if t == mtime:
+        return config
+    logging.info("Reloading config file %s" % str(path))
+    with path.open() as fd:
         config = json.load(fd)
+    CONFIG_FILE_DICT[config_file] = (config, mtime)
+    return config
+
+
+def serve_directory(start_response, config_file):
+    config = get_config(config_file)
+    head = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+ <head>
+  <title>Index of /</title>
+ </head>
+ <body>
+   <table>
+"""
+    tail = "\n    </table>\n  </body>\n</html>"
+    table=""
+    names = sorted(set([_["name"] for _ in config]))
+    for name in names:
+        table += f'\n      <tr><td><a href="{name}/">{name}/</a></td></tr>'
+    html = head+table+tail
+    start_response(
+        "200 OK",
+        [("Content-type", "text/html"),
+         ("Content-length", str(len(html))),
+         ("Access-control-allow-origin", "*")]
+    )
+    return [html.encode("utf-8")]
+
+
+def serve_precomputed(environ, start_response, config_file):
+    config = get_config(config_file)
     path_info = environ["PATH_INFO"]
+    if path_info == "/":
+        return serve_directory(start_response, config_file)
     for source in config:
         if path_info[1:].startswith(source["name"]+"/"):
             try:
@@ -59,6 +106,7 @@ def serve_precomputed(environ, start_response, config_file):
                 if filename == "mesh/info":
                     return file_not_found(filename, start_response)
                 elif filename == "info":
+                    logging.info("Serving %s" % source["name"])
                     destpath = os.path.join(dest, "info")
                     if not os.path.exists(destpath):
                         return file_not_found(destpath, start_response)
@@ -153,7 +201,8 @@ def parse_filename(dest, filename):
         raise ParseFilenameError()
     return filename, x0, x1, y0, y1, z0, z1
 
-if __name__ == "__main__":
+
+def main():
     from wsgiref.simple_server import make_server
     import sys
 
@@ -163,10 +212,12 @@ if __name__ == "__main__":
     else:
         port = 8080
 
-
     def application(environ, start_response):
         return serve_precomputed(environ, start_response, config_filename)
 
 
     httpd = make_server("127.0.0.1", port, application)
     httpd.serve_forever()
+
+if __name__ == "__main__":
+    main()
