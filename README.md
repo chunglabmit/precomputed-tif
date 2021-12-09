@@ -85,6 +85,34 @@ the points file
 annotations. These are one annotation per file and, if there are a large
 number of points, there will be too many of them for a file-system.
 
+### ims2precomputed
+
+**ims2precomputed** takes an Imaris file as input and outputs a Blockfs precomputed volume.
+
+Usage:
+ims2precomputed \
+  --source <source-file> \
+  --channel <channel-number> \
+  --dest <destination> \
+  [--levels <levels>] \
+  [--n-cores <n-cores>] \
+  [--log <log-level>] \
+  [--voxel-size <voxel-size>]
+
+where:
+* **source-file** is the path to the source .ims file
+* **channel** is the channel number within the IMS file, e.g. "0"
+* **dest** is the name of the destination directory for the volume
+* **levels** the number of mipmap levels. The first level has the
+same resolution as the input. Each subsequent level has half the
+resolution as the previous level.
+* **voxel-size** is the voxel size in microns as three comma-separated values,
+                 e.g. "1.8,1.8,2.0" in X, Y, Z order.  The default is
+                 "1.8,1.8,2.0" which is the voxel size for 4x SPIM.
+* **n-cores** is the number of processes that will be used for parallel
+                 processing.
+* **log** is the logging level, one of "DEBUG", "INFO", "WARNING" or "ERROR".
+
 ### cors-webserver
 
 The **precomputed-webserver** serves the precomputed TIF files as a
