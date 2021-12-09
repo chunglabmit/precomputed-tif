@@ -87,7 +87,7 @@ def write_level_1(args, stack:BlockfsStack):
                 write_one, (x0, y0, z0)))
         for future in tqdm.tqdm(futures):
             future.get()
-    DIRECTORY.close()
+        DIRECTORY.close()
 
 
 def main(args=sys.argv[1:]):
