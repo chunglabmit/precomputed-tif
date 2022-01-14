@@ -160,16 +160,16 @@ class StackBase:
                  num_channels=1,
                  type=self.ptype.value)
         scales = []
-        z_extent = self.z_extent
-        y_extent = self.y_extent
-        x_extent = self.x_extent
+        z_extent = int(self.z_extent)
+        y_extent = int(self.y_extent)
+        x_extent = int(self.x_extent)
         for level in range(1, n_levels + 1):
             resolution = self.resolution(level)
             scales.append(
                 dict(chunk_sizes=[self.chunksize],
                      encoding="raw",
                      key="%d_%d_%d" % (resolution, resolution, resolution),
-                     resolution=[resolution * _ for _ in voxel_size],
+                     resolution=[float(resolution * _) for _ in voxel_size],
                      size=[x_extent, y_extent, z_extent],
                      voxel_offset=[0, 0, 0]))
             z_extent = (z_extent + 1) // 2

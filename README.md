@@ -113,6 +113,26 @@ resolution as the previous level.
                  processing.
 * **log** is the logging level, one of "DEBUG", "INFO", "WARNING" or "ERROR".
 
+**dandi2precomputed** takes a set of DANDI NGFF volumes as input and outputs a Blockfs precomputed volume.
+
+Usage:
+dandi2precomputed \
+  --dest <destination> \
+  [--levels <levels>] \
+  [--n-cores <n-cores>] \
+  [--log <log-level>] \
+  path [path...]
+
+where:
+* **dest** is the name of the destination directory for the volume
+* **levels** the number of mipmap levels. The first level has the
+same resolution as the input. Each subsequent level has half the
+resolution as the previous level.
+* **n-cores** is the number of processes that will be used for parallel
+                 processing.
+* **log** is the logging level, one of "DEBUG", "INFO", "WARNING" or "ERROR".
+* **path** is the path to one or more .ngff directories, e.g. `/path/to/*_stain-YO_*.ngff`
+
 ### cors-webserver
 
 The **precomputed-webserver** serves the precomputed TIF files as a
