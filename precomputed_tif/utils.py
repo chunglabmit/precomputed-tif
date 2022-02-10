@@ -8,7 +8,8 @@ from .stack import Stack
 
 
 @contextlib.contextmanager
-def make_case(dtype, shape, return_path=False, klass=Stack, destname="dest"):
+def make_case(dtype, shape, return_path=False, klass=Stack,
+              destname="dest", chunk_size=(64, 64, 64)):
     """Make a test case
 
     :param dtype: the dtype of the volume, e.g. np.uint16
@@ -31,7 +32,7 @@ def make_case(dtype, shape, return_path=False, klass=Stack, destname="dest"):
             tifffile.imsave(os.path.join(src, "img_%04d.tiff" % z),
                             npstack[z])
         glob_expr = os.path.join(src, "img_*.tiff")
-        stack = klass(glob_expr, dest)
+        stack = klass(glob_expr, dest, chunk_size=chunk_size)
         if return_path:
             yield glob_expr, dest, npstack
         else:

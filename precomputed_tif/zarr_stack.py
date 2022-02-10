@@ -15,7 +15,7 @@ Default chunk size is (64, 64, 64)
 
 class ZarrStack:
 
-    def __init__(self, src, dest, compressor=None):
+    def __init__(self, src, dest, compressor=None, chunk_size=(64, 64, 64)):
         """
 
         :param src: glob for tiffs or a zarr store
@@ -25,6 +25,7 @@ class ZarrStack:
         """
         self.files = None
         self.z_arr = None
+        self.chunksize = chunk_size
         if isinstance(src, str):  # Assume it's a glob if src is a string
             self.files = sorted(glob.glob(src))
             self.z_extent = len(self.files)

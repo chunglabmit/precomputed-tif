@@ -29,10 +29,13 @@ class NGFFStack(StackBase):
     TYPE="reduce"
 
     def __init__(self, *args, **kwargs):
-        super(NGFFStack, self).__init__(*args, **kwargs)
+        if "chunk_size" in kwargs:
+            chunk_size = kwargs.pop("chunk_size")
+        else:
+            chunk_size = (128, 128, 128)
+        super(NGFFStack, self).__init__(*args, chunk_size=chunk_size, **kwargs)
         path = pathlib.Path(self.dest)
         self.name = path.stem
-        self.chunksize = (64, 64, 64)
 
     def create(self, mode="w", compressor=numcodecs.Blosc("zstd", 5)):
         """

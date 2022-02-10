@@ -22,8 +22,10 @@ def parse_args(args=sys.argv[1:]):
                         default=4)
     parser.add_argument("--format",
                         type=str,
-                        help="destination format (tiff, zarr, blockfs)",
+                        help="destination format (tiff, zarr, blockfs, ngff)",
                         default='blockfs')
+    parser.add_argument("--chunk-size",
+                        help="Dimensions of a precomputed chunk in x,y,z form")
     parser.add_argument("--n-cores",
                         type=int,
                         default=None,
@@ -46,20 +48,24 @@ def main(args=sys.argv[1:]):
     args = parse_args(args)
     logging.basicConfig(level=getattr(logging, args.log.upper()))
     ptype = PType.SEGMENTATION if args.segmentation else PType.IMAGE
+    kwargs = {}
+    if args.chunk_size is not None:
+        cx, cy, cz = [int(_) for _ in args.chunk_size.split(",")]
+        kwargs["chunk_size"] = (cz, cy, cx)
     if args.format == 'zarr':
         if args.source.endswith('.tif') or args.source.endswith('.tiff'):
-            stack = ZarrStack(args.source, args.dest)
+            stack = ZarrStack(args.source, args.dest, **kwargs)
             kwargs = {}
         else:
             store = zarr.NestedDirectoryStore(args.source)
             stack = ZarrStack(store, args.dest)
     elif args.format == 'blockfs':
-        stack = BlockfsStack(args.source, args.dest, ptype=ptype)
+        stack = BlockfsStack(args.source, args.dest, ptype=ptype, **kwargs)
     elif args.format == 'ngff':
-        stack = NGFFStack(args.source, args.dest)
+        stack = NGFFStack(args.source, args.dest, **kwargs)
         stack.create()
     else:
-        stack = Stack(args.source, args.dest, ptype=ptype)
+        stack = Stack(args.source, args.dest, ptype=ptype, **kwargs)
     if args.format != 'zarr':
         if args.n_cores is None:
             kwargs = {}

@@ -20,8 +20,10 @@ class BlockfsStack(StackBase):
 
     DIRECTORY_FILENAME="precomputed.blockfs"
 
-    def __init__(self, glob_expr, dest, ptype=PType.IMAGE):
-        super(BlockfsStack, self).__init__(glob_expr, dest, ptype=ptype)
+    def __init__(self, glob_expr, dest, ptype=PType.IMAGE,
+                 chunk_size=(64, 64, 64)):
+        super(BlockfsStack, self).__init__(glob_expr, dest, ptype=ptype,
+                                           chunk_size=chunk_size)
 
     def fname(self, level):
         return StackBase.resolution(level) + ".blockfs"
@@ -77,6 +79,9 @@ class BlockfsStack(StackBase):
             os.path.abspath(os.path.join(dest, BlockfsStack.DIRECTORY_FILENAME))
         block_files = [directory_filename + ".%d" % _ for _ in range(n_cores)]
         directory = Directory(x_extent, y_extent, z_extent, dtype,
+                              x_block_size=self.cx(),
+                              y_block_size=self.cy(),
+                              z_block_size=self.cz(),
                               directory_filename=directory_filename,
                               block_filenames=block_files)
         return directory
@@ -147,6 +152,9 @@ class BlockfsStack(StackBase):
                                    z1d[-1] - z0d[0],
                                    self.dtype,
                                    dest_directory_filename,
+                                   x_block_size=self.cx(),
+                                   y_block_size=self.cy(),
+                                   z_block_size=self.cz(),
                                    block_filenames=dest_block_filenames)
         dest_directory.create()
         dest_directory_id = uuid.uuid4()
@@ -182,8 +190,13 @@ class BlockfsStack(StackBase):
                           x0d, x0s, x1d, x1s, xidx, xsi_max,
                           y0d, y0s, y1d, y1s, yidx, ysi_max,
                           z0d, z0s, z1d, z1s, zidx, zsi_max):
+        logger.debug(f"Writing {x0s}:{x1s},{y0s}:{y1s},{z0s}:{z1s} to"
+                     f"{x0d}:{x1d},{y0d}:{y1d},{z0d}:{z1d}")
         src_directory = directories[src_directory_id]
         dest_directory = directories[dest_directory_id]
+        hx = src_directory.x_block_size // 2
+        hy = src_directory.y_block_size // 2
+        hz = src_directory.z_block_size // 2
         block = np.zeros((z1d[zidx] - z0d[zidx],
                           y1d[yidx] - y0d[yidx],
                           x1d[xidx] - x0d[xidx]), np.uint64)
@@ -204,13 +217,13 @@ class BlockfsStack(StackBase):
             for offx, offy, offz in \
                     itertools.product((0, 1), (0, 1), (0, 1)):
                 dsblock = src_block[offz::2, offy::2, offx::2]
-                block[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
-                ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
-                xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] += \
+                block[zsi1 * hz:zsi1 * hz + dsblock.shape[0],
+                ysi1 * hy:ysi1 * hy + dsblock.shape[1],
+                xsi1 * hx:xsi1 * hx + dsblock.shape[2]] += \
                     dsblock.astype(block.dtype)
-                hits[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
-                ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
-                xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] += 1
+                hits[zsi1 * hz:zsi1 * hz + dsblock.shape[0],
+                ysi1 * hy:ysi1 * hy + dsblock.shape[1],
+                xsi1 * hx:xsi1 * hx + dsblock.shape[2]] += 1
         block[hits > 0] = block[hits > 0] // hits[hits > 0]
         dest_directory.write_block(block, x0d[xidx], y0d[yidx], z0d[zidx])
 
@@ -227,6 +240,9 @@ class BlockfsStack(StackBase):
         hits = np.zeros((z1d[zidx] - z0d[zidx],
                          y1d[yidx] - y0d[yidx],
                          x1d[xidx] - x0d[xidx]), np.uint64)
+        hx = src_directory.x_block_size // 2
+        hy = src_directory.y_block_size // 2
+        hz = src_directory.z_block_size // 2
         for xsi1, ysi1, zsi1 in itertools.product((0, 1), (0, 1), (0, 1)):
             xsi = xsi1 + xidx * 2
             if xsi == xsi_max:
@@ -241,11 +257,11 @@ class BlockfsStack(StackBase):
             for offx, offy, offz in \
                     itertools.product((0, 1), (0, 1), (0, 1)):
                 dsblock = src_block[offz::2, offy::2, offx::2]
-                block[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
-                      ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
-                      xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] = np.maximum(
-                    block[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
-                          ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
-                          xsi1 * 32:xsi1 * 32 + dsblock.shape[2]],
+                block[zsi1 * hz:zsi1 * hz + dsblock.shape[0],
+                      ysi1 * hy:ysi1 * hy + dsblock.shape[1],
+                      xsi1 * hx:xsi1 * hx + dsblock.shape[2]] = np.maximum(
+                    block[zsi1 * hz:zsi1 * hz + dsblock.shape[0],
+                          ysi1 * hy:ysi1 * hy + dsblock.shape[1],
+                          xsi1 * hx:xsi1 * hx + dsblock.shape[2]],
                     dsblock.astype(block.dtype))
         dest_directory.write_block(block, x0d[xidx], y0d[yidx], z0d[zidx])

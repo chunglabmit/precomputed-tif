@@ -57,6 +57,23 @@ class TestNGFFStack(unittest.TestCase):
                 block = z_arr[0, 0, z0:z1, y0:y1, x0:x1]
                 np.testing.assert_equal(block, npstack[z0:z1, y0:y1, x0:x1])
 
+    def test_write_level_1_chunk_128(self):
+        with make_case(np.uint16, (200, 400, 600), klass=NGFFStack,
+                       chunk_size=(128, 128, 128)) \
+                as (stack, npstack):
+            stack.create()
+            stack.write_info_file(1)
+            stack.write_level_1()
+            z_arr = stack.zgroup["0"]
+            block_0_64_256 = z_arr[0, 0, :64, 64:128, 256:]
+            np.testing.assert_equal(block_0_64_256, npstack[:64, 64:128, 256:])
+            for (x0, x1), (y0, y1), (z0, z1) in itertools.product(
+                zip(stack.x0(1), stack.x1(1)),
+                zip(stack.y0(1), stack.y1(1)),
+                zip(stack.z0(1), stack.z1(1))):
+                block = z_arr[0, 0, z0:z1, y0:y1, x0:x1]
+                np.testing.assert_equal(block, npstack[z0:z1, y0:y1, x0:x1])
+
     def test_write_level_2(self):
         with make_case(np.uint16, (100, 201, 300), klass=NGFFStack) \
                 as (stack, npstack):

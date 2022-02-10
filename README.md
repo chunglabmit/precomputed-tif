@@ -27,10 +27,12 @@ The command-line is:
 precomputed-tif --source <source-glob> \
                 --dest <destination-folder> \
                 [--levels <levels>] \
+                [--chunk-size <chunk-size>] \
                 [--voxel-size <voxel-size>] \
                 [--format <format>] \
                 [--n-cores <n-cores>] \
-                [--log <log-level>]
+                [--log <log-level>] \
+                [--segmentation]
 ```
 
 where
@@ -41,6 +43,8 @@ the mipmap levels of the precomputed tifs.
 * **levels** the number of mipmap levels. The first level has the
 same resolution as the input. Each subsequent level has half the
 resolution as the previous level.
+* **chunk-size** is the size of a precomputed chunk in x,y,z.
+                 The default is 64,64,64 except for ngff which is 128,128,128
 * **voxel-size** is the voxel size in microns as three comma-separated values,
                  e.g. "1.8,1.8,2.0" in X, Y, Z order.  The default is
                  "1.8,1.8,2.0" which is the voxel size for 4x SPIM.
@@ -51,6 +55,8 @@ resolution as the previous level.
 * **n-cores** is the number of processes that will be used for parallel
                  processing.
 * **log** is the logging level, one of "DEBUG", "INFO", "WARNING" or "ERROR".
+* **segmentation** if present marks the volume as a segmentation instead of
+                   an image
 
 ### precomputed-write-points
 

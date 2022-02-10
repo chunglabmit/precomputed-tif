@@ -17,7 +17,8 @@ class StackBase:
                  glob_expr,
                  dest,
                  dtype=None,
-                 ptype=PType.IMAGE):
+                 ptype=PType.IMAGE,
+                 chunk_size=(64, 64, 64)):
         """
 
         :param glob_expr: the glob file expression for capturing the files in
@@ -35,7 +36,7 @@ class StackBase:
             self.y_extent, self.x_extent = img0.shape
             self.dtype = dtype or img0.dtype
         self.dest = dest
-        self.chunksize = (64, 64, 64)
+        self.chunksize = chunk_size
 
     @staticmethod
     def resolution(level):
@@ -166,7 +167,7 @@ class StackBase:
         for level in range(1, n_levels + 1):
             resolution = self.resolution(level)
             scales.append(
-                dict(chunk_sizes=[self.chunksize],
+                dict(chunk_sizes=[[self.cx(), self.cy(), self.cz()]],
                      encoding="raw",
                      key="%d_%d_%d" % (resolution, resolution, resolution),
                      resolution=[float(resolution * _) for _ in voxel_size],
@@ -182,8 +183,10 @@ class StackBase:
 
 class Stack(StackBase):
 
-    def __init__(self, glob_expr, dest, ptype=PType.IMAGE):
-        super(Stack, self).__init__(glob_expr, dest, ptype=ptype)
+    def __init__(self, glob_expr, dest, ptype=PType.IMAGE,
+                 chunk_size=(64, 64, 64)):
+        super(Stack, self).__init__(glob_expr, dest, ptype=ptype,
+                                    chunk_size=chunk_size)
 
     def fname(self, level, x0, x1, y0, y1, z0, z1):
         return Stack.sfname(self.dest, level, x0, x1, y0, y1, z0, z1)
@@ -282,20 +285,23 @@ class Stack(StackBase):
                     Stack.write_one_level_n,
                     (dest, dtype, level, x0d, x0s, x1d, x1s, xidx, xsi_max,
                      y0d, y0s, y1d, y1s, yidx, ysi_max,
-                     z0d, z0s, z1d, z1s, zidx, zsi_max)))
+                     z0d, z0s, z1d, z1s, zidx, zsi_max,
+                     self.cx(), self.cy(), self.cz())))
             for future in tqdm.tqdm(futures):
                 future.get()
 
     @staticmethod
     def write_one_level_n(dest, dtype, level, x0d, x0s, x1d, x1s, xidx, xsi_max,
                           y0d, y0s, y1d, y1s, yidx, ysi_max,
-                          z0d, z0s, z1d, z1s, zidx, zsi_max):
+                          z0d, z0s, z1d, z1s, zidx, zsi_max,
+                          cx, cy, cz):
         block = np.zeros((z1d[zidx] - z0d[zidx],
                           y1d[yidx] - y0d[yidx],
                           x1d[xidx] - x0d[xidx]), np.uint64)
         hits = np.zeros((z1d[zidx] - z0d[zidx],
                          y1d[yidx] - y0d[yidx],
                          x1d[xidx] - x0d[xidx]), np.uint64)
+        hx, hy, hz = cx // 2, cy // 2, cz // 2
         for xsi1, ysi1, zsi1 in itertools.product((0, 1), (0, 1), (0, 1)):
             xsi = xsi1 + xidx * 2
             if xsi == xsi_max:
@@ -313,13 +319,13 @@ class Stack(StackBase):
             for offx, offy, offz in \
                     itertools.product((0, 1), (0, 1), (0, 1)):
                 dsblock = src_block[offz::2, offy::2, offx::2]
-                block[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
-                ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
-                xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] += \
+                block[zsi1 * hz:zsi1 * hz + dsblock.shape[0],
+                ysi1 * hy:ysi1 * hy + dsblock.shape[1],
+                xsi1 * hx:xsi1 * hx + dsblock.shape[2]] += \
                     dsblock.astype(block.dtype)
-                hits[zsi1 * 32:zsi1 * 32 + dsblock.shape[0],
-                ysi1 * 32:ysi1 * 32 + dsblock.shape[1],
-                xsi1 * 32:xsi1 * 32 + dsblock.shape[2]] += 1
+                hits[zsi1 * hz:zsi1 * hz + dsblock.shape[0],
+                ysi1 * hy:ysi1 * hy + dsblock.shape[1],
+                xsi1 * hx:xsi1 * hx + dsblock.shape[2]] += 1
         block[hits > 0] = block[hits > 0] // hits[hits > 0]
         dest_path = Stack.sfname(
             dest, level, x0d[xidx], x1d[xidx], y0d[yidx], y1d[yidx],
