@@ -345,7 +345,7 @@ class ArrayReader(ArrayReaderBase):
         self.level = level
         try:
             self.info = get_info(url)
-        except URLError:
+        except:
             if format == "ngff":
                 self.info = get_ngff_info(url)
             else:
