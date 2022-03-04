@@ -119,7 +119,7 @@ def get_ngff_info(url) -> Info:
         ng_level = 2 ** int(slevel)
         ds = ngff[slevel]
         info["scales"].append(dict(
-            chunk_sizes=list(reversed(ds.chunks[2:])),
+            chunk_sizes=[list(reversed(ds.chunks[2:]))],
             encoding="raw",
             key=f"{ng_level}_{ng_level}_{ng_level}",
             size=list(reversed(ds.shape[2:])),

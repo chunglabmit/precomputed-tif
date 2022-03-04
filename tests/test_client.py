@@ -202,7 +202,8 @@ class TestClient(unittest.TestCase):
         self.teesstt_file_array_reader("ngff", NGFFStack)
 
     def test_ngff_info(self):
-        with make_case(np.uint16, (100, 201, 300), klass=NGFFStack) \
+        with make_case(np.uint16, (100, 201, 300), klass=NGFFStack,
+                       chunk_size=(64, 64, 64)) \
                 as (stack, npstack):
             stack.create()
             stack.write_info_file(2)
@@ -213,6 +214,8 @@ class TestClient(unittest.TestCase):
             info = get_ngff_info(url)
             scale = info.get_scale(1)
             self.assertSequenceEqual(scale.shape, (300, 201, 100))
+            chunk_sizes = scale.chunk_sizes
+            self.assertSequenceEqual(chunk_sizes, (64, 64, 64))
 
 def make_bids_transform(xoff, yoff, zoff):
     return [dict(
