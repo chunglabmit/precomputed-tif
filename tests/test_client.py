@@ -11,6 +11,7 @@ import precomputed_tif.client
 from precomputed_tif import ZarrStack
 from precomputed_tif.blockfs_stack import BlockfsStack
 from precomputed_tif.client import read_chunk, clear_cache, ArrayReader
+from precomputed_tif.client import get_ngff_info
 from precomputed_tif.client import DANDIArrayReader
 from precomputed_tif.ngff_stack import NGFFStack
 from precomputed_tif.stack import StackBase, Stack
@@ -200,6 +201,18 @@ class TestClient(unittest.TestCase):
     def test_ngff(self):
         self.teesstt_file_array_reader("ngff", NGFFStack)
 
+    def test_ngff_info(self):
+        with make_case(np.uint16, (100, 201, 300), klass=NGFFStack) \
+                as (stack, npstack):
+            stack.create()
+            stack.write_info_file(2)
+            stack.write_level_1()
+            stack.write_level_n(2)
+
+            url = pathlib.Path(stack.dest).as_uri()
+            info = get_ngff_info(url)
+            scale = info.get_scale(1)
+            self.assertSequenceEqual(scale.shape, (300, 201, 100))
 
 def make_bids_transform(xoff, yoff, zoff):
     return [dict(
