@@ -35,9 +35,7 @@ def subset_image_mult(input_file_path, output_file_path, chunk, y0, y1 , x0,x1, 
         print(f" The max number of iterations is {max_num_iterations}")
 
 def main():
-    # apply multiprocessing
     p = pathlib.Path("{file_path}".format(file_path=args.input_file_path))
-    # ArrayReader takes the URL form of the path and it points to a blockfs volume
     ar = ArrayReader(p.as_uri(), format="blockfs")
     dim = ar.shape
     z_dimension = dim[0]
