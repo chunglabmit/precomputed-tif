@@ -20,7 +20,7 @@ def subset_image_mult(input_file_path, output_file_path, chunk, y0, y1 , x0,x1, 
     path = pathlib.Path("{file_path}".format(file_path=input_file_path))
     # ArrayReader takes the URL form of the path and it points to a blockfs volume
     array_reader = ArrayReader(path.as_uri(), format="blockfs")
-    z_y_x_dim = array_reader.shape  # get the shape of the array : [640, 2542, 3000]
+    z_y_x_dim = array_reader.shape 
     z_dim= z_y_x_dim[0] # get the z dimension -> 640
     max_num_iterations= math.ceil(z_dim/chunk)
     if iteration <= max_num_iterations: 
