@@ -1,4 +1,5 @@
 blockfs
+fsspec
 numpy
 numcodecs
 requests

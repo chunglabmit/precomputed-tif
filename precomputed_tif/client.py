@@ -103,6 +103,32 @@ def get_info(url) -> Info:
     return __cache[url]
 
 
+def get_ngff_info(url) -> Info:
+    if url in __cache:
+        return __cache[url]
+    ngff = zarr.open_group(url)
+    datasets = [_["path"] for _ in ngff.attrs["multiscales"][0]["datasets"]]
+    info = dict(
+        data_type="uint16",
+        mesh="mesh",
+        num_channels=1,
+        type="image",
+        scales = []
+    )
+    for slevel in datasets:
+        ng_level = 2 ** int(slevel)
+        ds = ngff[slevel]
+        info["scales"].append(dict(
+            chunk_sizes=[list(reversed(ds.chunks[2:]))],
+            encoding="raw",
+            key=f"{ng_level}_{ng_level}_{ng_level}",
+            size=list(reversed(ds.shape[2:])),
+            voxel_offset=[0,0,0]
+        ))
+    __cache[url] = Info(info)
+    return __cache[url]
+
+
 def clear_cache(url=None):
     """Clear the cache of info files
 
@@ -317,7 +343,13 @@ class ArrayReader(ArrayReaderBase):
         self.url = url
         self.format = format
         self.level = level
-        self.info = get_info(url)
+        try:
+            self.info = get_info(url)
+        except:
+            if format == "ngff":
+                self.info = get_ngff_info(url)
+            else:
+                raise
         self.scale = self.info.get_scale(level)
 
     @property

@@ -13,6 +13,7 @@ setup(
     long_description=long_description,
     install_requires=[
         "blockfs",
+        "fsspec",
         "mp_shared_memory",
         "numpy",
         "numcodecs",
