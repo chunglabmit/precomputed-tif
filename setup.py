@@ -30,7 +30,8 @@ setup(
         'precomputed-save=precomputed_tif.save:main',
         'precomputed-write-points=precomputed_tif.write_points:main',
         'ims2precomputed=precomputed_tif.ims2precomputed:main',
-        'dandi2precomputed=precomputed_tif.dandi2precomputed:main'
+        'dandi2precomputed=precomputed_tif.dandi2precomputed:main',
+        'precomputed_subvolume=precomputed_tif.precomputed_subvolume:main'
     ]},
     url="https://github.com/chunglabmit/precomputed-tif",
     license="MIT",
