@@ -236,3 +236,26 @@ WSGIScriptAlias /precomputed /usr/local/apache-scripts/precomputed.wsgi
 ```
 With the above, you should be able to serve precomputed datasources
 at precomputed://http://localhost/precomputed/expt1-dapi, etc.
+  
+### Precomputed_subvolume
+
+**Precomputed_subvolume** takes precomputed blockfs files and outputs subvolumes across all the z dimension with the x and y dimensions specified by the user .
+
+Usage:
+Precomputed_subvolume \
+  --input-file-path \
+  --output-file-path \
+  --chunk\
+  --y0\
+  --y1\
+  --x0\
+  --x1
+
+where:
+* **input-file-path** is the path to the directory with the blockfs files.
+* **output-file-path** is the path to the directory where the outputted tiffiles will be saved.
+* **chunk** is how many values to process in z per call. In other words how many values will each subvolume contain. A chunk size of 64 is recommended as it results in a faster processing speed. 
+* **y0** is the starting point in the y dimension. 
+* **y1** is the end point in the y dimension.
+* **x0** is the starting point in the x dimension. 
+* **x1** is the end point in the x dimension.
