@@ -237,12 +237,12 @@ WSGIScriptAlias /precomputed /usr/local/apache-scripts/precomputed.wsgi
 With the above, you should be able to serve precomputed datasources
 at precomputed://http://localhost/precomputed/expt1-dapi, etc.
   
-### Precomputed_subvolume
+### precomputed_subvolume
 
-**Precomputed_subvolume** takes precomputed blockfs files and outputs subvolumes across all the z dimension with the x and y dimensions specified by the user .
+**precomputed_subvolume** takes precomputed blockfs files and outputs subvolumes across all the z dimension with the x and y dimensions specified by the user .
 
 Usage:
-Precomputed_subvolume \
+precomputed_subvolume \
   --input-file-path \
   --output-file-path \
   --chunk\
