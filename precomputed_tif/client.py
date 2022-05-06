@@ -6,6 +6,7 @@ import itertools
 import json
 from urllib.request import urlopen, urlparse
 from urllib.parse import unquote
+import requests
 import numpy as np
 import os
 import tifffile
@@ -98,8 +99,11 @@ def get_info(url) -> Info:
     if url in __cache:
         return __cache[url]
     info_url = url + "/info"
-    response = urlopen(info_url)
-    __cache[url] = Info(json.loads(response.read().decode("ascii")))
+    if info_url.startswith('http') or info_url.startswith('https'):
+    	content=requests.get(info_url).text
+    else:
+    	content= urlopen(info_url).read().decode("ascii") 
+    __cache[url] = Info(json.loads(content))
     return __cache[url]
 
 
