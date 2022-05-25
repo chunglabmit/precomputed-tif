@@ -411,7 +411,10 @@ class DANDIArrayReader(ArrayReaderBase):
                           for _ in ("ZOffset", "YOffset", "XOffset")))
 
     def load_sidecar(self, url):
-        sidecar_url = url[:-4] + "json"
+        if url.endswith(".ngff"):
+            sidecar_url = url[:-4] + "json"
+        elif url.endswith(".ome.zarr"):
+            sidecar_url = url[:-8] + "json"
         with urlopen(sidecar_url) as fd:
             sidecar = json.load(fd)
         return sidecar
