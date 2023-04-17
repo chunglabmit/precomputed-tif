@@ -9,6 +9,7 @@ import tqdm
 from blockfs import Directory, Compression
 import uuid
 import itertools
+from PIL import Image
 
 from .stack import StackBase, PType
 
@@ -89,7 +90,11 @@ class BlockfsStack(StackBase):
     @staticmethod
     def read_tiff(shm, z, path):
         with shm.txn() as m:
-            m[z] = tifffile.imread(path)
+            if '.jpeg' in path or '.jpg' in path:
+                jarray = np.asarray(Image.open(path))
+                jarray[jarray < 20] = 0
+                m[z] = jarray
+            else: m[z] = tifffile.imread(path)
 
     @staticmethod
     def write_one_level_1(pool, directory_id, files,

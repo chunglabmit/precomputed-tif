@@ -51,6 +51,7 @@ def file_not_found(dest, start_response):
 
 shader_template = """
 #uicontrol float brightness slider(min=0.0, max=100.0, default=%f)
+#uicontrol invlerp toNormalized
 void main() {
     float x = clamp(toNormalized(getDataValue()) * brightness, 0.0, 1.0);
     float angle = 2.0 * 3.1415926 * (4.0 / 3.0 + x);

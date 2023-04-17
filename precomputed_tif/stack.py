@@ -7,6 +7,7 @@ import tifffile
 import os
 import tqdm
 import multiprocessing
+from PIL import Image
 
 class PType(enum.Enum):
     IMAGE="image"
@@ -32,7 +33,7 @@ class StackBase:
         else:
             self.files = sorted(glob.glob(glob_expr))
             self.z_extent = len(self.files)
-            img0 = tifffile.imread(self.files[0])
+            img0 = StackBase.read_file(self.files[0])
             self.y_extent, self.x_extent = img0.shape
             self.dtype = dtype or img0.dtype
         self.dest = dest
@@ -180,6 +181,13 @@ class StackBase:
         with open(os.path.join(self.dest, "info"), "w") as fd:
             json.dump(d, fd, indent=2, sort_keys=True)
 
+    @staticmethod
+    def read_file(path):
+        if '.jpeg' in path or '.jpg' in path:
+            jarray = np.asarray(Image.open(path))
+            jarray[jarray < 20] = 0
+            return jarray
+        else: return tifffile.imread(path)
 
 class Stack(StackBase):
 
@@ -242,7 +250,7 @@ class Stack(StackBase):
         img = np.zeros((z1a-z0a, y_extent, x_extent), dtype)
         for z, file in zip(range(z0a, z1a), files):
             img[z - z0a] = \
-                tifffile.imread(file)
+                StackBase.read_file(file)
         for (x0a, x1a), (y0a, y1a) in itertools.product(
                 zip(x0, x1), zip(y0, y1)):
             path = Stack.sfname(dest, 1, x0a, x1a, y0a, y1a, z0a, z1a)
@@ -315,7 +323,7 @@ class Stack(StackBase):
             src_path = Stack.sfname(
                 dest, level - 1, x0s[xsi], x1s[xsi], y0s[ysi], y1s[ysi],
                 z0s[zsi], z1s[zsi])
-            src_block = tifffile.imread(src_path)
+            src_block = StackBase.read_file(src_path)
             for offx, offy, offz in \
                     itertools.product((0, 1), (0, 1), (0, 1)):
                 dsblock = src_block[offz::2, offy::2, offx::2]
@@ -335,3 +343,4 @@ class Stack(StackBase):
                         :y1d[yidx] - y0d[yidx],
                         :x1d[xidx] - x0d[xidx]].astype(dtype),
                         compress=4)
+        
