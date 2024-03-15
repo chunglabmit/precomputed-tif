@@ -25,6 +25,7 @@ class BlockfsStack(StackBase):
                  chunk_size=(64, 64, 64)):
         super(BlockfsStack, self).__init__(glob_expr, dest, ptype=ptype,
                                            chunk_size=chunk_size)
+        if self.dtype == bool: self.dtype = np.dtype(np.uint16)
 
     def fname(self, level):
         return StackBase.resolution(level) + ".blockfs"
@@ -94,7 +95,13 @@ class BlockfsStack(StackBase):
                 jarray = np.asarray(Image.open(path))
                 jarray[jarray < 20] = 0
                 m[z] = jarray
-            else: m[z] = tifffile.imread(path)
+            else:
+                arr = tifffile.imread(path)
+                if arr.dtype == bool: 
+                    print(arr.sum())
+                    arr = (arr.astype(np.uint16)*100)
+                    print(arr.sum())
+                m[z] = arr
 
     @staticmethod
     def write_one_level_1(pool, directory_id, files,
