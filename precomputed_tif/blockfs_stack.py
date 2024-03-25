@@ -98,9 +98,7 @@ class BlockfsStack(StackBase):
             else:
                 arr = tifffile.imread(path)
                 if arr.dtype == bool: 
-                    print(arr.sum())
                     arr = (arr.astype(np.uint16)*100)
-                    print(arr.sum())
                 m[z] = arr
 
     @staticmethod
